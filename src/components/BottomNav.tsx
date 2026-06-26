@@ -46,12 +46,12 @@ export default function BottomNav() {
           }
         />
         <Item
-          to="/history"
-          label="History"
+          to="/calendar"
+          label="Calendar"
           icon={
             <svg viewBox="0 0 24 24" {...stroke}>
-              <path d="M3 12a9 9 0 1 0 3-6.7" />
-              <path d="M3 3v4h4M12 7v5l3 2" />
+              <rect x="3" y="4" width="18" height="17" rx="2" />
+              <path d="M3 9h18M8 2v4M16 2v4" />
             </svg>
           }
         />

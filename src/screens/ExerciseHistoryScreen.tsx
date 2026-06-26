@@ -46,7 +46,7 @@ export default function ExerciseHistoryScreen() {
     <div className="screen">
       <ScreenHeader
         title={exercise.name}
-        subtitle={`${exercise.primaryMuscle} · ${exercise.movementPattern}`}
+        subtitle={`${exercise.primaryMuscles.join(" / ")} · ${exercise.movementPattern}`}
         right={
           <button className="btn-sm" onClick={() => navigate(-1)}>
             ‹ Back

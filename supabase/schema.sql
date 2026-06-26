@@ -22,6 +22,7 @@ declare
     'template_exercises',
     'workout_sessions',
     'set_entries',
+    'cardio_logs',
     'body_metrics',
     'readiness_logs',
     'personal_notes',
@@ -29,7 +30,9 @@ declare
     'ai_reports',
     'swap_groups',
     'volume_targets',
-    'progression_rules'
+    'progression_rules',
+    'weekly_schedule',
+    'program_meta'
   ];
 begin
   foreach t in array tables loop

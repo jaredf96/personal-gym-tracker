@@ -4,7 +4,8 @@ import { isoDateInRange, startOfWeek, endOfWeek } from "../lib/dates";
 export type VolumeStatus = "low" | "in-range" | "high" | "no-target";
 
 export interface MuscleVolume {
-  muscle: string;
+  muscle: string; // canonical key
+  label: string;
   hardSets: number; // working (non-warmup) sets this week
   target: VolumeTarget | null;
   status: VolumeStatus;
@@ -17,8 +18,9 @@ function classify(hardSets: number, target: VolumeTarget | null): VolumeStatus {
   return "in-range";
 }
 
-// Weekly hard sets by primary muscle (workbook: "primary/direct sets only"),
-// compared against the min/max target ranges. A "hard set" = one working set.
+// Weekly hard sets by muscle, compared against the prescribed target band. A
+// "hard set" = one working (non-warmup) set, counted toward EACH muscle the
+// exercise trains (e.g. a Bulgarian split squat counts for quads and glutes).
 export function weeklyVolumeByMuscle(
   setEntries: SetEntry[],
   sessions: WorkoutSession[],
@@ -38,7 +40,10 @@ export function weeklyVolumeByMuscle(
     if (!date || !isoDateInRange(date, start, end)) continue;
     const ex = exercisesById.get(set.exerciseId);
     if (!ex) continue;
-    counts.set(ex.primaryMuscle, (counts.get(ex.primaryMuscle) ?? 0) + 1);
+    // One set counts once toward each distinct muscle it trains.
+    for (const muscle of new Set(ex.volumeMuscles)) {
+      counts.set(muscle, (counts.get(muscle) ?? 0) + 1);
+    }
   }
 
   const targetByMuscle = new Map(targets.map((t) => [t.muscle, t]));
@@ -48,7 +53,13 @@ export function weeklyVolumeByMuscle(
   for (const muscle of muscles) {
     const hardSets = counts.get(muscle) ?? 0;
     const target = targetByMuscle.get(muscle) ?? null;
-    rows.push({ muscle, hardSets, target, status: classify(hardSets, target) });
+    rows.push({
+      muscle,
+      label: target?.label ?? muscle,
+      hardSets,
+      target,
+      status: classify(hardSets, target),
+    });
   }
 
   // Targeted muscles first (most actionable), then by set count desc.

@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate, useParams } from "react-router-dom";
+import { db } from "../db/db";
 import { analyzeSession } from "../engine/analysis";
-import { getSettings } from "../db/repo";
+import { getSettings, getWeeklySchedule, listTemplates } from "../db/repo";
+import { describeDate } from "../engine/schedule";
 import { generateCoachSummary, getLatestReportForSession } from "../ai/coachService";
 import { fmtNum, fmtWeight, signed, plural } from "../lib/format";
-import { relativeDay } from "../lib/dates";
+import { relativeDay, todayISODate } from "../lib/dates";
 import { ScreenHeader, Pill, TrendPill, Empty } from "../components/ui";
 
 export default function SummaryScreen() {
@@ -15,12 +17,17 @@ export default function SummaryScreen() {
 
   const data = useLiveQuery(async () => {
     if (!sessionId) return null;
-    const [analysis, settings, report] = await Promise.all([
+    const [analysis, settings, report, schedule, templates, sessions] = await Promise.all([
       analyzeSession(sessionId),
       getSettings(),
       getLatestReportForSession(sessionId),
+      getWeeklySchedule(),
+      listTemplates(),
+      db.workoutSessions.toArray(),
     ]);
-    return { analysis, settings, report };
+    const tomorrowDate = todayISODate(new Date(Date.now() + 86_400_000));
+    const tomorrow = describeDate(tomorrowDate, schedule, templates, sessions);
+    return { analysis, settings, report, tomorrow };
   }, [sessionId]);
 
   if (!data) return <div className="screen">Loading…</div>;
@@ -33,8 +40,15 @@ export default function SummaryScreen() {
     );
   }
 
-  const { analysis, settings, report } = data;
+  const { analysis, settings, report, tomorrow } = data;
   const unit = settings.unit;
+
+  const tomorrowText = tomorrow.isWorkoutDay
+    ? `Tomorrow you have ${tomorrow.plannedTemplate?.name ?? "your next workout"}`
+    : tomorrow.isCardioDay
+    ? `Tomorrow is a cardio day (${tomorrow.scheduleLabel})`
+    : "Tomorrow is a rest day";
+  const tomorrowColor = tomorrow.plannedTemplate?.color ?? "var(--accent)";
 
   async function generate() {
     if (!sessionId) return;
@@ -70,6 +84,17 @@ export default function SummaryScreen() {
             <Pill>{analysis.totals.durationMin} min</Pill>
           )}
         </div>
+      </div>
+
+      {/* Tomorrow's plan */}
+      <div className="card" style={{ borderColor: tomorrowColor }}>
+        <div className="row" style={{ gap: 8 }}>
+          <span>📅</span>
+          <span style={{ fontWeight: 600, color: tomorrowColor }}>{tomorrowText}</span>
+        </div>
+        {tomorrow.isRestDay && (
+          <div className="faint tiny mt">Walking / mobility only — let it recover.</div>
+        )}
       </div>
 
       {/* AI coach summary */}

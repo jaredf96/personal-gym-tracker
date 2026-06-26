@@ -5,6 +5,7 @@ import type {
   TemplateExercise,
   WorkoutSession,
   SetEntry,
+  CardioLog,
   BodyMetric,
   ReadinessLog,
   PersonalNote,
@@ -13,6 +14,8 @@ import type {
   SwapGroup,
   VolumeTarget,
   ProgressionRuleInfo,
+  WeeklyScheduleDay,
+  ProgramMeta,
 } from "../types";
 
 // All app state lives in this single local IndexedDB database (no backend).
@@ -22,6 +25,7 @@ export class GymDB extends Dexie {
   templateExercises!: Table<TemplateExercise, string>;
   workoutSessions!: Table<WorkoutSession, string>;
   setEntries!: Table<SetEntry, string>;
+  cardioLogs!: Table<CardioLog, string>;
   bodyMetrics!: Table<BodyMetric, string>;
   readinessLogs!: Table<ReadinessLog, string>;
   personalNotes!: Table<PersonalNote, string>;
@@ -30,11 +34,11 @@ export class GymDB extends Dexie {
   swapGroups!: Table<SwapGroup, string>;
   volumeTargets!: Table<VolumeTarget, string>;
   progressionRules!: Table<ProgressionRuleInfo, string>;
+  weeklySchedule!: Table<WeeklyScheduleDay, string>;
+  programMeta!: Table<ProgramMeta, string>;
 
   constructor() {
     super("gym-tracker");
-    // Only fields used in queries need to be indexed. Compound + multi-entry
-    // indexes are listed where the engine filters on them.
     this.version(1).stores({
       exercises: "id, primaryMuscle, movementPattern, progressionRule",
       workoutTemplates: "id, sequenceOrder",
@@ -50,19 +54,40 @@ export class GymDB extends Dexie {
       volumeTargets: "muscle",
       progressionRules: "rule",
     });
+
+    // v2: Max Productive split — new program tables + cardio logging.
+    this.version(2).stores({
+      exercises: "id, type, movementPattern, progressionRule",
+      workoutTemplates: "id, sequenceOrder",
+      templateExercises: "id, templateId, exerciseId, order",
+      workoutSessions: "id, templateId, date, startedAt, endedAt",
+      setEntries: "id, sessionId, exerciseId, createdAt, [exerciseId+createdAt]",
+      cardioLogs: "id, date, createdAt",
+      bodyMetrics: "id, date",
+      readinessLogs: "id, date",
+      personalNotes: "id, date, exerciseId, sessionId",
+      settings: "id",
+      aiReports: "id, sessionId, createdAt",
+      swapGroups: "id, baseExercise, swapGroup",
+      volumeTargets: "muscle",
+      progressionRules: "rule",
+      weeklySchedule: "id, dayIndex, templateId",
+      programMeta: "id",
+    });
   }
 }
 
 export const db = new GymDB();
 
-// Named tables list used by the JSON backup export/import so adding a table in
-// one place keeps backups complete.
+// Tables included in JSON backup export/import and cloud sync. Adding a table
+// here keeps backups + sync complete.
 export const BACKUP_TABLES = [
   "exercises",
   "workoutTemplates",
   "templateExercises",
   "workoutSessions",
   "setEntries",
+  "cardioLogs",
   "bodyMetrics",
   "readinessLogs",
   "personalNotes",
@@ -71,6 +96,11 @@ export const BACKUP_TABLES = [
   "swapGroups",
   "volumeTargets",
   "progressionRules",
+  "weeklySchedule",
+  "programMeta",
 ] as const;
 
 export type BackupTableName = (typeof BACKUP_TABLES)[number];
+
+// Tables wiped on a program version change (everything except user preferences).
+export const PROGRAM_DATA_TABLES = BACKUP_TABLES.filter((t) => t !== "settings");

@@ -69,7 +69,7 @@ export default function DashboardScreen() {
           return (
             <div key={v.muscle} className="card">
               <div className="row between">
-                <h3>{v.muscle}</h3>
+                <h3>{v.label}</h3>
                 <VolumePill status={v.status} />
               </div>
               <div className="row between small muted" style={{ marginTop: 2 }}>
@@ -78,7 +78,7 @@ export default function DashboardScreen() {
                 </span>
                 {v.target ? (
                   <span>
-                    target {min}–{max}
+                    target {v.target.targetSets} ({min}–{max})
                   </span>
                 ) : (
                   <span className="faint">no target</span>

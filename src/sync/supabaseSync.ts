@@ -1,5 +1,5 @@
 import { db, BACKUP_TABLES, type BackupTableName } from "../db/db";
-import { ensureSeeded } from "../db/seedRunner";
+import { ensureSeeded, didUpgradeProgram } from "../db/seedRunner";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 // ===========================================================================
@@ -29,6 +29,7 @@ const REMOTE: Record<BackupTableName, string> = {
   templateExercises: "template_exercises",
   workoutSessions: "workout_sessions",
   setEntries: "set_entries",
+  cardioLogs: "cardio_logs",
   bodyMetrics: "body_metrics",
   readinessLogs: "readiness_logs",
   personalNotes: "personal_notes",
@@ -37,6 +38,8 @@ const REMOTE: Record<BackupTableName, string> = {
   swapGroups: "swap_groups",
   volumeTargets: "volume_targets",
   progressionRules: "progression_rules",
+  weeklySchedule: "weekly_schedule",
+  programMeta: "program_meta",
 };
 
 // Primary-key field per Dexie table (defaults to "id"). The remote `id` column
@@ -199,6 +202,16 @@ async function clearLocal() {
   }
 }
 
+// Delete every cloud row for this user across all tables. Used when the seeded
+// program version changes so stale rows from the old program can't be pulled back.
+async function resetCloud(userId: string) {
+  if (!supabase) return;
+  for (const t of BACKUP_TABLES) {
+    const { error } = await supabase.from(REMOTE[t]).delete().eq("user_id", userId);
+    if (error) throw error;
+  }
+}
+
 async function cloudHasData(userId: string): Promise<boolean> {
   if (!supabase) return false;
   // `exercises` always exists for a synced user (seeded). A brand-new user has none.
@@ -229,6 +242,17 @@ export async function startSync(userId: string): Promise<void> {
   setStatus({ state: "syncing", message: undefined });
 
   try {
+    // Program upgrade this launch: local was already wiped + reseeded to the new
+    // program. Purge the stale cloud copy and push the fresh seed (no pull-back).
+    if (didUpgradeProgram()) {
+      await resetCloud(userId);
+      await pushSnapshot();
+      localStorage.setItem(OWNER_KEY, userId);
+      if (gen !== startGeneration) return;
+      setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
+      return;
+    }
+
     let owner = localStorage.getItem(OWNER_KEY);
 
     // A different user's cache must not be visible — wipe it first.

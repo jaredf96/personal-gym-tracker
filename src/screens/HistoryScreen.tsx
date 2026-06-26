@@ -11,9 +11,10 @@ export default function HistoryScreen() {
   // Group by primary muscle for a tidy list.
   const byMuscle = new Map<string, typeof exercises>();
   for (const e of [...exercises].sort((a, b) => a.name.localeCompare(b.name))) {
-    const list = byMuscle.get(e.primaryMuscle) ?? [];
+    const muscle = e.primaryMuscles[0] ?? "Other";
+    const list = byMuscle.get(muscle) ?? [];
     list.push(e);
-    byMuscle.set(e.primaryMuscle, list);
+    byMuscle.set(muscle, list);
   }
 
   return (
@@ -30,7 +31,7 @@ export default function HistoryScreen() {
               <Pill>{list.length}</Pill>
             </div>
             {list.map((e) => (
-              <Link key={e.id} to={`/history/${e.id}`} className="list-row">
+              <Link key={e.id} to={`/exercises/${e.id}`} className="list-row">
                 <div>
                   <div style={{ color: "var(--text)" }}>{e.name}</div>
                   <div className="faint tiny">{e.movementPattern}</div>

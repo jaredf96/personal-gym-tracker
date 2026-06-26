@@ -5,6 +5,7 @@ import AuthGate from "./auth/AuthGate";
 import TodayScreen from "./screens/TodayScreen";
 import LoggerScreen from "./screens/LoggerScreen";
 import SummaryScreen from "./screens/SummaryScreen";
+import CalendarScreen from "./screens/CalendarScreen";
 import HistoryScreen from "./screens/HistoryScreen";
 import ExerciseHistoryScreen from "./screens/ExerciseHistoryScreen";
 import DashboardScreen from "./screens/DashboardScreen";
@@ -20,8 +21,10 @@ export default function App() {
             <Route path="/workout" element={<LoggerScreen />} />
             <Route path="/workout/:sessionId" element={<LoggerScreen />} />
             <Route path="/summary/:sessionId" element={<SummaryScreen />} />
-            <Route path="/history" element={<HistoryScreen />} />
-            <Route path="/history/:exerciseId" element={<ExerciseHistoryScreen />} />
+            <Route path="/calendar" element={<CalendarScreen />} />
+            <Route path="/exercises" element={<HistoryScreen />} />
+            <Route path="/exercises/:exerciseId" element={<ExerciseHistoryScreen />} />
+            <Route path="/history" element={<Navigate to="/calendar" replace />} />
             <Route path="/dashboard" element={<DashboardScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />

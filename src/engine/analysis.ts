@@ -35,8 +35,14 @@ function fallbackTemplateExercise(ex: Exercise): TemplateExercise {
     targetSets: 3,
     repMin: ex.defaultRepMin,
     repMax: ex.defaultRepMax,
-    restSeconds: ex.defaultRestSeconds,
+    perSide: ex.perSide,
+    restMin: ex.defaultRestMin,
+    restMax: ex.defaultRestMax,
+    rirTarget: ex.rirTarget,
+    warmupSets: ex.defaultWarmupSets,
+    countsTowardVolume: true,
     progressionRule: ex.progressionRule,
+    exerciseType: ex.type,
     isMainLift: false,
   };
 }
@@ -149,7 +155,7 @@ export async function analyzeSession(sessionId: string): Promise<SessionAnalysis
     exercises.push({
       exerciseId,
       name: exercise.name,
-      primaryMuscle: exercise.primaryMuscle,
+      primaryMuscle: exercise.primaryMuscles[0] ?? exercise.name,
       comparison,
       suggestion,
     });

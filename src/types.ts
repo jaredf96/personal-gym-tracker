@@ -1,6 +1,5 @@
-// Core domain types for the gym tracker.
-// These mirror the "Suggested App Seed Data" sheet in the workbook and are the
-// single source of truth for both the Dexie schema and the training engine.
+// Core domain types for the gym tracker (v2: Max Productive Upper/Lower split).
+// The seed is generated from program/max_volume_upper_lower_program.md.
 
 export type Unit = "lb" | "kg";
 
@@ -11,21 +10,31 @@ export type ProgressionRuleName =
 
 export type TemplateType = "Upper" | "Lower";
 
+export type ExerciseType = "compound" | "isolation";
+
 // ---------------------------------------------------------------------------
-// Library / template data (seeded from the workbook, editable later)
+// Library / template data (seeded from the program, editable later)
 // ---------------------------------------------------------------------------
 
 export interface Exercise {
-  id: string; // slug, e.g. "incline-db-press"
+  id: string; // slug, e.g. "incline-dumbbell-press"
   name: string;
-  primaryMuscle: string;
+  type: ExerciseType;
+  primaryMuscles: string[]; // raw, for display (e.g. ["quads","glutes"])
   secondaryMuscles: string[];
-  equipment: string;
+  // Canonical weekly-volume target keys this exercise's working sets count toward.
+  volumeMuscles: string[];
   movementPattern: string; // "Press" | "Hinge" | "Squat/Knee" | "Row/Pull" | "Isolation/Core"
   defaultRepMin: number;
   defaultRepMax: number;
-  defaultRestSeconds: number;
+  perSide: boolean; // "each leg/side"
+  defaultRestMin: number;
+  defaultRestMax: number;
+  rirTarget: string; // e.g. "1-2"
+  defaultWarmupSets: number;
   progressionRule: ProgressionRuleName;
+  equipment?: string;
+  note?: string;
 }
 
 export interface WorkoutTemplate {
@@ -33,6 +42,9 @@ export interface WorkoutTemplate {
   name: string; // "Upper A"
   type: TemplateType;
   sequenceOrder: number; // 1..N rotation position
+  color: string; // hex, for calendar / theming
+  estMinMinutes: number;
+  estMaxMinutes: number;
 }
 
 export interface TemplateExercise {
@@ -43,10 +55,66 @@ export interface TemplateExercise {
   targetSets: number;
   repMin: number;
   repMax: number;
-  restSeconds: number;
+  perSide: boolean;
+  restMin: number;
+  restMax: number;
+  rirTarget: string;
+  warmupSets: number; // suggested uncounted ramp sets
+  countsTowardVolume: boolean;
   progressionRule: ProgressionRuleName;
-  isMainLift: boolean; // workbook "Main Beat Target?"
+  exerciseType: ExerciseType;
+  isMainLift: boolean;
   notes?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Schedule + program meta
+// ---------------------------------------------------------------------------
+
+export type DayType = "workout" | "cardio" | "rest" | "cardio_or_rest";
+
+export interface WeeklyScheduleDay {
+  id: string; // weekday name lowercased
+  dayIndex: number; // 0 = Monday ... 6 = Sunday
+  day: string; // "Monday"
+  type: DayType;
+  templateId?: string; // for workout days
+  label: string;
+  cardioMinMinutes?: number;
+  cardioMaxMinutes?: number;
+  note?: string;
+}
+
+export interface DeloadConfig {
+  triggers: string[];
+  reduceMinPercent: number;
+  reduceMaxPercent: number;
+  durationWeeks: number;
+  keepMovementPatterns: boolean;
+  avoidFailure: boolean;
+}
+
+export interface ProgramMeta {
+  id: "program";
+  name: string;
+  version: string;
+  seedVersion: string;
+  experienceLevel: string;
+  goal: string;
+  philosophy: {
+    compoundRIR: string;
+    isolationRIR: string;
+    avoidTrueFailureOn: string[];
+    warmupsCountTowardVolume: boolean;
+  };
+  deload: DeloadConfig;
+  warmup: {
+    firstCompoundRampSets: number;
+    firstCompoundRampPercents: number[];
+    secondHeavyCompoundRampSets: number;
+    lowerDayActivation: string[];
+    countsTowardVolume: boolean;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +128,7 @@ export interface WorkoutSession {
   startedAt: string; // ISO timestamp
   endedAt?: string; // ISO timestamp; presence => session completed
   notes?: string;
+  isDeload?: boolean;
 }
 
 export interface SetEntry {
@@ -70,9 +139,18 @@ export interface SetEntry {
   weight: number;
   reps: number;
   rir?: number; // reps in reserve
-  isWarmup: boolean;
+  isWarmup: boolean; // excluded from volume + progression math
   notes?: string;
   createdAt: string; // ISO timestamp
+}
+
+export interface CardioLog {
+  id: string;
+  date: string; // YYYY-MM-DD
+  minutes: number;
+  kind: string; // e.g. "Zone 2"
+  notes?: string;
+  createdAt: string;
 }
 
 export interface BodyMetric {
@@ -105,26 +183,25 @@ export interface PersonalNote {
 export interface Settings {
   id: "app";
   unit: Unit;
-  // "smallest practical jump" used by the progression engine.
   weightIncrementUpper: number;
   weightIncrementLower: number;
   restTimerAutoStart: boolean;
-  coachProvider: string; // 'mock' for now
+  coachProvider: string;
 }
 
 export interface AiReport {
   id: string;
   sessionId?: string;
-  createdAt: string; // ISO timestamp
+  createdAt: string;
   provider: string;
-  context: unknown; // CoachContext snapshot (see src/ai/types.ts)
+  context: unknown;
   headline: string;
   summary: string;
   bullets: string[];
 }
 
 // ---------------------------------------------------------------------------
-// Reference seed data (workbook sheets kept as editable tables)
+// Reference seed data
 // ---------------------------------------------------------------------------
 
 export interface SwapGroup {
@@ -138,15 +215,16 @@ export interface SwapGroup {
 }
 
 export interface VolumeTarget {
-  muscle: string; // primary key
-  minSets: number;
-  maxSets: number;
-  directPrimarySets: number; // baseline from the workbook
-  notes?: string;
+  muscle: string; // canonical key e.g. "back_lats_upper_back"
+  label: string; // display, e.g. "Back / Lats"
+  targetSets: number; // weekly prescribed target
+  minSets: number; // in-range band floor
+  maxSets: number; // in-range band ceiling
+  note?: string;
 }
 
 export interface ProgressionRuleInfo {
-  rule: string; // primary key
+  rule: string;
   usedFor: string;
   trigger: string;
   suggestion: string;

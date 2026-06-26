@@ -47,8 +47,10 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged 
     setReps("");
     setNote("");
     setShowNote(false);
-    if (!isWarmup) onSetLogged(te.restSeconds);
+    if (!isWarmup) onSetLogged(te.restMax);
   }
+
+  const restLabel = te.restMin === te.restMax ? `${te.restMin}s` : `${te.restMin}–${te.restMax}s`;
 
   return (
     <div className="card">
@@ -59,12 +61,20 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged 
             {te.isMainLift && <Pill tone="accent">Main</Pill>}
           </div>
           <div className="muted small">
-            {te.targetSets} × {repRange(te.repMin, te.repMax)} · rest {te.restSeconds}s ·{" "}
-            {exercise.primaryMuscle}
+            {te.targetSets} × {repRange(te.repMin, te.repMax)}
+            {te.perSide ? "/side" : ""} · RIR {te.rirTarget} · rest {restLabel} ·{" "}
+            {exercise.primaryMuscles.join(" / ")}
           </div>
         </div>
         <Pill>{shortRule(te.progressionRule)}</Pill>
       </div>
+
+      {te.warmupSets > 0 && (
+        <div className="faint tiny mt">
+          🔥 Warm-up: {te.warmupSets} ramp set{te.warmupSets === 1 ? "" : "s"} (~50%, 75%) — tap the
+          W toggle; warm-ups don't count toward volume.
+        </div>
+      )}
 
       {/* Last session + deterministic suggestion */}
       <div

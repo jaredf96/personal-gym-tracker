@@ -1,38 +1,48 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
+import { db } from "../db/db";
 import {
   getActiveSession,
   getNextTemplate,
   getSettings,
+  getWeeklySchedule,
   listTemplates,
   startSession,
 } from "../db/repo";
 import { analyzeSession } from "../engine/analysis";
-import { upcomingTemplates } from "../engine/rotation";
-import { relativeDay } from "../lib/dates";
+import { describeDate, type DayDescriptor } from "../engine/schedule";
+import { getDeloadAssessment } from "../engine/deload";
+import { todayISODate, relativeDay } from "../lib/dates";
 import { fmtNum } from "../lib/format";
 import { ScreenHeader, Pill } from "../components/ui";
 import ReadinessCard from "../components/ReadinessCard";
+import CardioCard from "../components/CardioCard";
+import type { WorkoutTemplate } from "../types";
 
 export default function TodayScreen() {
   const navigate = useNavigate();
 
   const data = useLiveQuery(async () => {
-    const [templates, next, active, settings] = await Promise.all([
+    const [templates, schedule, sessions, active, settings, nextInfo] = await Promise.all([
       listTemplates(),
-      getNextTemplate(),
+      getWeeklySchedule(),
+      db.workoutSessions.toArray(),
       getActiveSession(),
       getSettings(),
+      getNextTemplate(),
     ]);
-    const upcoming = upcomingTemplates(templates, next.lastCompleted, 4);
-    const lastSummary = next.lastCompleted
-      ? await analyzeSession(next.lastCompleted.id)
+    const tomorrowDate = todayISODate(new Date(Date.now() + 86_400_000));
+    const today = describeDate(todayISODate(), schedule, templates, sessions);
+    const tomorrow = describeDate(tomorrowDate, schedule, templates, sessions);
+    const lastSummary = nextInfo.lastCompleted
+      ? await analyzeSession(nextInfo.lastCompleted.id)
       : null;
-    return { templates, next, active, upcoming, lastSummary, settings };
+    const deload = await getDeloadAssessment();
+    return { templates, today, tomorrow, nextLift: nextInfo.template, active, settings, lastSummary, deload };
   }, []);
 
   if (!data) return <div className="screen">Loading…</div>;
-  const { templates, next, active, upcoming, lastSummary, settings } = data;
+  const { templates, today, tomorrow, nextLift, active, settings, lastSummary, deload } = data;
 
   async function start(templateId: string | undefined) {
     if (!templateId) return;
@@ -40,7 +50,7 @@ export default function TodayScreen() {
     navigate(`/workout/${s.id}`);
   }
 
-  const today = new Date().toLocaleDateString(undefined, {
+  const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: "long",
     month: "short",
     day: "numeric",
@@ -48,43 +58,45 @@ export default function TodayScreen() {
 
   return (
     <div className="screen">
-      <ScreenHeader title="Today" subtitle={today} />
+      <ScreenHeader title="Today" subtitle={dateLabel} />
 
-      {/* Active session takes priority */}
-      {active ? (
-        <div className="card" style={{ borderColor: "var(--accent-dim)" }}>
-          <div className="row between">
+      {deload.recommended && (
+        <div className="card" style={{ borderColor: "var(--amber)" }}>
+          <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+            <span>⚠️</span>
             <div>
-              <div className="muted small">Workout in progress</div>
-              <h2>{templateName(active.templateId, upcoming, next.template?.name)}</h2>
+              <div style={{ fontWeight: 600, color: "var(--amber)" }}>Deload suggested</div>
+              <div className="small muted">{deload.reasons.join(" · ")}</div>
+              {deload.prescription && <div className="small mt">{deload.prescription}</div>}
             </div>
-            <Pill tone="accent">Live</Pill>
           </div>
-          <button
-            className="btn-primary btn-block btn-lg mt"
-            onClick={() => navigate(`/workout/${active.id}`)}
-          >
-            Resume workout →
-          </button>
-        </div>
-      ) : (
-        <div className="card" style={{ borderColor: "var(--accent-dim)" }}>
-          <div className="muted small">Next in your rotation</div>
-          <h2 style={{ marginTop: 2 }}>{next.template?.name ?? "No workout"}</h2>
-          <div className="muted small mt">
-            Sequence-based — do this whenever you train next, no calendar required.
-          </div>
-          <button
-            className="btn-primary btn-block btn-lg mt"
-            onClick={() => start(next.template?.id)}
-            disabled={!next.template}
-          >
-            Start {next.template?.name} →
-          </button>
         </div>
       )}
 
-      {/* Start any specific day (rotation is just the default) */}
+      {active ? (
+        <ActiveCard
+          templates={templates}
+          templateId={active.templateId}
+          onResume={() => navigate(`/workout/${active.id}`)}
+        />
+      ) : (
+        <PlanCard today={today} nextLift={nextLift} onStart={start} />
+      )}
+
+      {/* Tomorrow preview */}
+      <div className="card">
+        <div className="row between">
+          <h3>Tomorrow</h3>
+          <TomorrowChip d={tomorrow} />
+        </div>
+      </div>
+
+      {/* Cardio quick-log (prominent on cardio days, available any day) */}
+      {(today.isCardioDay || today.completed) && (
+        <CardioCard suggestedMinutes={today.cardioMinMinutes} />
+      )}
+
+      {/* Start any specific day */}
       {!active && (
         <div className="card">
           <h3 className="mb">Or start a specific workout</h3>
@@ -93,7 +105,7 @@ export default function TodayScreen() {
               <button
                 key={t.id}
                 className="btn-sm grow"
-                style={{ minWidth: 110 }}
+                style={{ minWidth: 110, borderColor: t.color, color: t.color }}
                 onClick={() => start(t.id)}
               >
                 {t.name}
@@ -102,20 +114,6 @@ export default function TodayScreen() {
           </div>
         </div>
       )}
-
-      {/* Rotation preview */}
-      <div className="card">
-        <h3 className="mb">Rotation</h3>
-        <div className="row wrap">
-          {upcoming.map((t, i) => (
-            <Pill key={t.id} tone={i === 0 ? "accent" : "default"}>
-              {i === 0 ? "Next: " : ""}
-              {t.name}
-            </Pill>
-          ))}
-        </div>
-        <div className="faint tiny mt">Upper A → Lower A → Upper B → Lower B → repeat</div>
-      </div>
 
       {/* Last session recap */}
       {lastSummary && (
@@ -132,11 +130,6 @@ export default function TodayScreen() {
             <Pill>
               {fmtNum(lastSummary.totals.totalVolume)} {settings.unit} volume
             </Pill>
-            {lastSummary.exercises.filter((e) => e.comparison.trend === "improved").length > 0 && (
-              <Pill tone="green">
-                {lastSummary.exercises.filter((e) => e.comparison.trend === "improved").length} up ▲
-              </Pill>
-            )}
           </div>
         </div>
       )}
@@ -146,10 +139,101 @@ export default function TodayScreen() {
   );
 }
 
-function templateName(
-  templateId: string,
-  upcoming: { id: string; name: string }[],
-  fallback?: string
-): string {
-  return upcoming.find((t) => t.id === templateId)?.name ?? fallback ?? "Workout";
+function PlanCard({
+  today,
+  nextLift,
+  onStart,
+}: {
+  today: DayDescriptor;
+  nextLift: WorkoutTemplate | null;
+  onStart: (id: string | undefined) => void;
+}) {
+  // Already trained today.
+  if (today.completed && today.completedTemplate) {
+    const t = today.completedTemplate;
+    return (
+      <div className="card" style={{ borderColor: t.color }}>
+        <div className="muted small">Today — done ✓</div>
+        <h2 style={{ color: t.color }}>{t.name}</h2>
+        <div className="muted small mt">Nice work. Rest up and check tomorrow's plan below.</div>
+      </div>
+    );
+  }
+
+  // Scheduled workout day.
+  if (today.isWorkoutDay) {
+    const t = today.plannedTemplate ?? nextLift;
+    return (
+      <div className="card" style={{ borderColor: t?.color ?? "var(--accent-dim)" }}>
+        <div className="muted small">Today — workout</div>
+        <h2 style={{ color: t?.color }}>{t?.name ?? "Workout"}</h2>
+        <button
+          className="btn-primary btn-block btn-lg mt"
+          style={t ? { background: t.color, borderColor: t.color } : undefined}
+          onClick={() => onStart(t?.id)}
+          disabled={!t}
+        >
+          Start {t?.name} →
+        </button>
+      </div>
+    );
+  }
+
+  // Cardio or rest day — still let them lift if they want.
+  return (
+    <div className="card" style={{ borderColor: today.isCardioDay ? "var(--green)" : "var(--border)" }}>
+      <div className="muted small">Today</div>
+      <h2>{today.isCardioDay ? today.scheduleLabel : "Full rest"}</h2>
+      <div className="muted small mt">
+        {today.isCardioDay
+          ? `Planned: ${today.cardioMinMinutes ?? ""}–${today.cardioMaxMinutes ?? ""} min Zone 2.${
+              today.note ? " " + today.note : ""
+            }`
+          : "No lifting scheduled — walking / mobility only."}
+      </div>
+      {nextLift && (
+        <button className="btn btn-block mt" onClick={() => onStart(nextLift.id)} style={{ borderColor: nextLift.color, color: nextLift.color }}>
+          Lift anyway — start {nextLift.name}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ActiveCard({
+  templates,
+  templateId,
+  onResume,
+}: {
+  templates: WorkoutTemplate[];
+  templateId: string;
+  onResume: () => void;
+}) {
+  const t = templates.find((x) => x.id === templateId);
+  return (
+    <div className="card" style={{ borderColor: t?.color ?? "var(--accent-dim)" }}>
+      <div className="row between">
+        <div>
+          <div className="muted small">Workout in progress</div>
+          <h2 style={{ color: t?.color }}>{t?.name ?? "Workout"}</h2>
+        </div>
+        <Pill tone="accent">Live</Pill>
+      </div>
+      <button
+        className="btn-primary btn-block btn-lg mt"
+        style={t ? { background: t.color, borderColor: t.color } : undefined}
+        onClick={onResume}
+      >
+        Resume workout →
+      </button>
+    </div>
+  );
+}
+
+function TomorrowChip({ d }: { d: DayDescriptor }) {
+  if (d.isWorkoutDay && d.plannedTemplate) {
+    return <Pill tone="default"><span style={{ color: d.plannedTemplate.color }}>{d.plannedTemplate.name}</span></Pill>;
+  }
+  if (d.isCardioDay) return <Pill tone="green">{d.scheduleLabel}</Pill>;
+  return <Pill>Rest</Pill>;
 }

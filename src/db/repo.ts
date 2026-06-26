@@ -1,9 +1,10 @@
 import { db } from "./db";
-import { getSettings } from "./seedRunner";
+import { getSettings, getProgramMeta, getWeeklySchedule } from "./seedRunner";
 import { uid } from "../lib/id";
 import { nowISO, todayISODate } from "../lib/dates";
 import type {
   BodyMetric,
+  CardioLog,
   Exercise,
   PersonalNote,
   ReadinessLog,
@@ -238,4 +239,28 @@ export async function getWeeklyVolume(reference = new Date()): Promise<MuscleVol
   return weeklyVolumeByMuscle(sets, sessions, exercisesById, targets, reference);
 }
 
-export { getSettings };
+// ---------------------------------------------------------------------------
+// Cardio logs
+// ---------------------------------------------------------------------------
+
+export async function listCardioLogs(): Promise<CardioLog[]> {
+  return (await db.cardioLogs.toArray()).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export async function getCardioForDate(date: string): Promise<CardioLog[]> {
+  return db.cardioLogs.where("date").equals(date).toArray();
+}
+
+export async function addCardioLog(
+  input: Omit<CardioLog, "id" | "createdAt">
+): Promise<CardioLog> {
+  const entry: CardioLog = { ...input, id: uid("cardio"), createdAt: nowISO() };
+  await db.cardioLogs.put(entry);
+  return entry;
+}
+
+export async function deleteCardioLog(id: string): Promise<void> {
+  await db.cardioLogs.delete(id);
+}
+
+export { getSettings, getProgramMeta, getWeeklySchedule };

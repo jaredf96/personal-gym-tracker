@@ -1,364 +1,765 @@
-// AUTO-GENERATED from personal_gym_tracker_template.xlsx by scripts/gen_seed.py
-// Do not edit by hand — re-run the generator if the workbook changes.
-// This is the workbook-derived seed data loaded into IndexedDB on first launch.
+// AUTO-GENERATED from program/max_volume_upper_lower_program.md by scripts/gen_program.py
+// Do not edit by hand — re-run the generator if the program changes.
 import type {
   Exercise,
   WorkoutTemplate,
   TemplateExercise,
-  WorkoutSession,
-  SetEntry,
-  SwapGroup,
   VolumeTarget,
+  WeeklyScheduleDay,
+  ProgramMeta,
   ProgressionRuleInfo,
 } from "../types";
 
+// Bump when the seeded program changes; triggers a local wipe + reseed.
+export const SEED_VERSION = "v2-maxvol-2026-06-26";
+
 export const seedExercises: Exercise[] = [
   {
-    "id": "incline-db-press",
-    "name": "Incline DB Press",
-    "primaryMuscle": "Chest",
+    "id": "incline-dumbbell-press",
+    "name": "Incline Dumbbell Press",
+    "type": "compound",
+    "primaryMuscles": [
+      "chest"
+    ],
     "secondaryMuscles": [
-      "Front delts",
+      "front delts",
       "triceps"
     ],
-    "equipment": "Dumbbell",
+    "volumeMuscles": [
+      "chest"
+    ],
     "movementPattern": "Press",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
-    "defaultRestSeconds": 150,
-    "progressionRule": "Double Progression"
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 3,
+    "progressionRule": "Double Progression",
+    "note": undefined
   },
   {
     "id": "chest-supported-row",
     "name": "Chest-Supported Row",
-    "primaryMuscle": "Back",
+    "type": "compound",
+    "primaryMuscles": [
+      "back",
+      "lats"
+    ],
     "secondaryMuscles": [
-      "Rear delts",
+      "rear delts",
       "biceps"
     ],
-    "equipment": "Mixed",
-    "movementPattern": "Row/Pull",
-    "defaultRepMin": 8,
-    "defaultRepMax": 12,
-    "defaultRestSeconds": 120,
-    "progressionRule": "Double Progression"
-  },
-  {
-    "id": "machine-chest-press-or-flat-db-press",
-    "name": "Machine Chest Press or Flat DB Press",
-    "primaryMuscle": "Chest",
-    "secondaryMuscles": [
-      "Front delts",
-      "triceps"
+    "volumeMuscles": [
+      "back_lats_upper_back"
     ],
-    "equipment": "Mixed",
-    "movementPattern": "Press",
-    "defaultRepMin": 8,
-    "defaultRepMax": 12,
-    "defaultRestSeconds": 120,
-    "progressionRule": "Double Progression"
-  },
-  {
-    "id": "lat-pulldown",
-    "name": "Lat Pulldown",
-    "primaryMuscle": "Back",
-    "secondaryMuscles": [
-      "Biceps"
-    ],
-    "equipment": "Machine/Cable",
-    "movementPattern": "Row/Pull",
-    "defaultRepMin": 8,
-    "defaultRepMax": 12,
-    "defaultRestSeconds": 120,
-    "progressionRule": "Double Progression"
-  },
-  {
-    "id": "lateral-raise",
-    "name": "Lateral Raise",
-    "primaryMuscle": "Side delts",
-    "secondaryMuscles": [],
-    "equipment": "Free weight/bodyweight",
-    "movementPattern": "Isolation/Core",
-    "defaultRepMin": 12,
-    "defaultRepMax": 20,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
-  },
-  {
-    "id": "triceps-pressdown",
-    "name": "Triceps Pressdown",
-    "primaryMuscle": "Triceps",
-    "secondaryMuscles": [],
-    "equipment": "Machine/Cable",
-    "movementPattern": "Press",
-    "defaultRepMin": 10,
-    "defaultRepMax": 15,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
-  },
-  {
-    "id": "db-curl-or-cable-curl",
-    "name": "DB Curl or Cable Curl",
-    "primaryMuscle": "Biceps",
-    "secondaryMuscles": [],
-    "equipment": "Mixed",
-    "movementPattern": "Isolation/Core",
-    "defaultRepMin": 10,
-    "defaultRepMax": 15,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
-  },
-  {
-    "id": "squat-or-hack-squat",
-    "name": "Squat or Hack Squat",
-    "primaryMuscle": "Quads",
-    "secondaryMuscles": [
-      "Glutes",
-      "adductors"
-    ],
-    "equipment": "Mixed",
-    "movementPattern": "Squat/Knee",
-    "defaultRepMin": 6,
-    "defaultRepMax": 10,
-    "defaultRestSeconds": 180,
-    "progressionRule": "Double Progression"
-  },
-  {
-    "id": "romanian-deadlift",
-    "name": "Romanian Deadlift",
-    "primaryMuscle": "Hamstrings",
-    "secondaryMuscles": [
-      "Glutes",
-      "lower back"
-    ],
-    "equipment": "Free weight/bodyweight",
-    "movementPattern": "Hinge",
-    "defaultRepMin": 6,
-    "defaultRepMax": 10,
-    "defaultRestSeconds": 150,
-    "progressionRule": "Conservative Progression"
-  },
-  {
-    "id": "leg-press",
-    "name": "Leg Press",
-    "primaryMuscle": "Quads",
-    "secondaryMuscles": [
-      "Glutes"
-    ],
-    "equipment": "Free weight/bodyweight",
-    "movementPattern": "Press",
-    "defaultRepMin": 10,
-    "defaultRepMax": 15,
-    "defaultRestSeconds": 120,
-    "progressionRule": "Double Progression"
-  },
-  {
-    "id": "seated-or-lying-leg-curl",
-    "name": "Seated or Lying Leg Curl",
-    "primaryMuscle": "Hamstrings",
-    "secondaryMuscles": [],
-    "equipment": "Mixed",
-    "movementPattern": "Isolation/Core",
-    "defaultRepMin": 10,
-    "defaultRepMax": 15,
-    "defaultRestSeconds": 90,
-    "progressionRule": "Rep Progression"
-  },
-  {
-    "id": "standing-or-seated-calf-raise",
-    "name": "Standing or Seated Calf Raise",
-    "primaryMuscle": "Calves",
-    "secondaryMuscles": [],
-    "equipment": "Mixed",
-    "movementPattern": "Isolation/Core",
-    "defaultRepMin": 8,
-    "defaultRepMax": 15,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
-  },
-  {
-    "id": "cable-crunch-or-hanging-knee-raise",
-    "name": "Cable Crunch or Hanging Knee Raise",
-    "primaryMuscle": "Abs",
-    "secondaryMuscles": [],
-    "equipment": "Mixed",
-    "movementPattern": "Isolation/Core",
-    "defaultRepMin": 10,
-    "defaultRepMax": 20,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
-  },
-  {
-    "id": "pull-up-or-lat-pulldown",
-    "name": "Pull-Up or Lat Pulldown",
-    "primaryMuscle": "Back",
-    "secondaryMuscles": [
-      "Biceps"
-    ],
-    "equipment": "Mixed",
     "movementPattern": "Row/Pull",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
-    "defaultRestSeconds": 150,
-    "progressionRule": "Double Progression"
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 1,
+    "progressionRule": "Double Progression",
+    "note": undefined
   },
   {
-    "id": "seated-db-shoulder-press-or-machine-press",
-    "name": "Seated DB Shoulder Press or Machine Press",
-    "primaryMuscle": "Shoulders",
-    "secondaryMuscles": [
-      "Triceps"
+    "id": "neutral-grip-lat-pulldown-or-pull-up",
+    "name": "Neutral-Grip Lat Pulldown or Pull-Up",
+    "type": "compound",
+    "primaryMuscles": [
+      "lats"
     ],
-    "equipment": "Mixed",
-    "movementPattern": "Press",
-    "defaultRepMin": 6,
-    "defaultRepMax": 10,
-    "defaultRestSeconds": 150,
-    "progressionRule": "Double Progression"
-  },
-  {
-    "id": "cable-row",
-    "name": "Cable Row",
-    "primaryMuscle": "Back",
     "secondaryMuscles": [
-      "Rear delts",
       "biceps"
     ],
-    "equipment": "Machine/Cable",
+    "volumeMuscles": [
+      "back_lats_upper_back"
+    ],
     "movementPattern": "Row/Pull",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
-    "defaultRestSeconds": 120,
-    "progressionRule": "Double Progression"
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 120,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 1,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "seated-db-or-machine-shoulder-press",
+    "name": "Seated DB or Machine Shoulder Press",
+    "type": "compound",
+    "primaryMuscles": [
+      "front delts"
+    ],
+    "secondaryMuscles": [
+      "triceps",
+      "side delts"
+    ],
+    "volumeMuscles": [
+      "front_delts"
+    ],
+    "movementPattern": "Press",
+    "defaultRepMin": 6,
+    "defaultRepMax": 10,
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 120,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 1,
+    "progressionRule": "Double Progression",
+    "note": undefined
   },
   {
     "id": "pec-deck-or-cable-fly",
     "name": "Pec Deck or Cable Fly",
-    "primaryMuscle": "Chest",
+    "type": "isolation",
+    "primaryMuscles": [
+      "chest"
+    ],
     "secondaryMuscles": [],
-    "equipment": "Mixed",
+    "volumeMuscles": [
+      "chest"
+    ],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
-    "defaultRestSeconds": 90,
-    "progressionRule": "Rep Progression"
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
   },
   {
-    "id": "rear-delt-fly",
-    "name": "Rear Delt Fly",
-    "primaryMuscle": "Rear delts",
-    "secondaryMuscles": [
-      "Upper back"
+    "id": "cable-lateral-raise",
+    "name": "Cable Lateral Raise",
+    "type": "isolation",
+    "primaryMuscles": [
+      "side delts"
     ],
-    "equipment": "Free weight/bodyweight",
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "side_delts"
+    ],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 12,
     "defaultRepMax": 20,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
+    "perSide": false,
+    "defaultRestMin": 60,
+    "defaultRestMax": 75,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
   },
   {
-    "id": "incline-db-curl",
-    "name": "Incline DB Curl",
-    "primaryMuscle": "Biceps",
+    "id": "face-pull",
+    "name": "Face Pull",
+    "type": "isolation",
+    "primaryMuscles": [
+      "rear delts"
+    ],
+    "secondaryMuscles": [
+      "mid traps",
+      "external rotators"
+    ],
+    "volumeMuscles": [
+      "rear_delts"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 12,
+    "defaultRepMax": 20,
+    "perSide": false,
+    "defaultRestMin": 60,
+    "defaultRestMax": 75,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": "Replaces reverse pec deck — adds external rotation + trap work for shoulder health."
+  },
+  {
+    "id": "incline-dumbbell-curl",
+    "name": "Incline Dumbbell Curl",
+    "type": "isolation",
+    "primaryMuscles": [
+      "biceps"
+    ],
     "secondaryMuscles": [],
-    "equipment": "Dumbbell",
+    "volumeMuscles": [
+      "biceps"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 8,
+    "defaultRepMax": 12,
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "rope-pressdown",
+    "name": "Rope Pressdown",
+    "type": "isolation",
+    "primaryMuscles": [
+      "triceps"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "triceps"
+    ],
+    "movementPattern": "Press",
+    "defaultRepMin": 10,
+    "defaultRepMax": 15,
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "hack-squat-or-high-bar-squat",
+    "name": "Hack Squat or High-Bar Squat",
+    "type": "compound",
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ],
+    "volumeMuscles": [
+      "quads"
+    ],
+    "movementPattern": "Squat/Knee",
+    "defaultRepMin": 6,
+    "defaultRepMax": 10,
+    "perSide": false,
+    "defaultRestMin": 180,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 3,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "romanian-deadlift",
+    "name": "Romanian Deadlift",
+    "type": "compound",
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [
+      "glutes",
+      "erectors"
+    ],
+    "volumeMuscles": [
+      "hamstrings"
+    ],
+    "movementPattern": "Hinge",
+    "defaultRepMin": 6,
+    "defaultRepMax": 10,
+    "perSide": false,
+    "defaultRestMin": 180,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 2,
+    "progressionRule": "Conservative Progression",
+    "note": undefined
+  },
+  {
+    "id": "leg-press",
+    "name": "Leg Press",
+    "type": "compound",
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ],
+    "volumeMuscles": [
+      "quads"
+    ],
+    "movementPattern": "Squat/Knee",
+    "defaultRepMin": 10,
+    "defaultRepMax": 15,
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 1,
+    "progressionRule": "Double Progression",
+    "note": "Trimmed 3→2 to keep weekly quad volume recoverable."
+  },
+  {
+    "id": "lying-leg-curl",
+    "name": "Lying Leg Curl",
+    "type": "isolation",
+    "primaryMuscles": [
+      "hamstrings"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "hamstrings"
+    ],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
+    "perSide": false,
+    "defaultRestMin": 90,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "leg-extension",
+    "name": "Leg Extension",
+    "type": "isolation",
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "quads"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 12,
+    "defaultRepMax": 20,
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "standing-calf-raise",
+    "name": "Standing Calf Raise",
+    "type": "isolation",
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "calves"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 8,
+    "defaultRepMax": 12,
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "cable-crunch",
+    "name": "Cable Crunch",
+    "type": "isolation",
+    "primaryMuscles": [
+      "abs"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "abs_core"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 10,
+    "defaultRepMax": 15,
+    "perSide": false,
+    "defaultRestMin": 60,
+    "defaultRestMax": 75,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "pallof-press",
+    "name": "Pallof Press",
+    "type": "isolation",
+    "primaryMuscles": [
+      "core",
+      "obliques"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "abs_core"
+    ],
+    "movementPattern": "Press",
+    "defaultRepMin": 8,
+    "defaultRepMax": 12,
+    "perSide": true,
+    "defaultRestMin": 45,
+    "defaultRestMax": 60,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": "Anti-rotation / bracing — carries over to compounds."
+  },
+  {
+    "id": "flat-bench-press-or-machine-chest-press",
+    "name": "Flat Bench Press or Machine Chest Press",
+    "type": "compound",
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "front delts",
+      "triceps"
+    ],
+    "volumeMuscles": [
+      "chest"
+    ],
+    "movementPattern": "Press",
+    "defaultRepMin": 6,
+    "defaultRepMax": 10,
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 3,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "weighted-pull-up-or-neutral-pulldown",
+    "name": "Weighted Pull-Up or Neutral Pulldown",
+    "type": "compound",
+    "primaryMuscles": [
+      "lats"
+    ],
+    "secondaryMuscles": [
+      "biceps"
+    ],
+    "volumeMuscles": [
+      "back_lats_upper_back"
+    ],
+    "movementPattern": "Row/Pull",
+    "defaultRepMin": 6,
+    "defaultRepMax": 10,
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 2,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "cable-row",
+    "name": "Cable Row",
+    "type": "compound",
+    "primaryMuscles": [
+      "back"
+    ],
+    "secondaryMuscles": [
+      "rear delts",
+      "biceps"
+    ],
+    "volumeMuscles": [
+      "back_lats_upper_back"
+    ],
+    "movementPattern": "Row/Pull",
+    "defaultRepMin": 8,
+    "defaultRepMax": 12,
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 120,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 1,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "low-incline-dumbbell-press",
+    "name": "Low-Incline Dumbbell Press",
+    "type": "compound",
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "front delts",
+      "triceps"
+    ],
+    "volumeMuscles": [
+      "chest"
+    ],
+    "movementPattern": "Press",
+    "defaultRepMin": 8,
+    "defaultRepMax": 12,
+    "perSide": false,
+    "defaultRestMin": 120,
+    "defaultRestMax": 120,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 1,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "cable-fly-or-pec-deck",
+    "name": "Cable Fly or Pec Deck",
+    "type": "isolation",
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "chest"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 12,
+    "defaultRepMax": 20,
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "machine-or-cable-lateral-raise",
+    "name": "Machine or Cable Lateral Raise",
+    "type": "isolation",
+    "primaryMuscles": [
+      "side delts"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "side_delts"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 12,
+    "defaultRepMax": 20,
+    "perSide": false,
+    "defaultRestMin": 60,
+    "defaultRestMax": 75,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "rear-delt-cable-fly",
+    "name": "Rear-Delt Cable Fly",
+    "type": "isolation",
+    "primaryMuscles": [
+      "rear delts"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "rear_delts"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 12,
+    "defaultRepMax": 20,
+    "perSide": false,
+    "defaultRestMin": 60,
+    "defaultRestMax": 75,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "cable-curl-or-ez-bar-curl",
+    "name": "Cable Curl or EZ-Bar Curl",
+    "type": "isolation",
+    "primaryMuscles": [
+      "biceps"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "biceps"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 8,
+    "defaultRepMax": 12,
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": "Cable preferred — better peak tension at shortened position, cleaner load jumps."
   },
   {
     "id": "overhead-cable-triceps-extension",
     "name": "Overhead Cable Triceps Extension",
-    "primaryMuscle": "Triceps",
+    "type": "isolation",
+    "primaryMuscles": [
+      "triceps"
+    ],
     "secondaryMuscles": [],
-    "equipment": "Machine/Cable",
+    "volumeMuscles": [
+      "triceps"
+    ],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
   },
   {
-    "id": "deadlift-variation-or-hip-thrust",
-    "name": "Deadlift Variation or Hip Thrust",
-    "primaryMuscle": "Glutes",
-    "secondaryMuscles": [
-      "Hamstrings",
-      "lower back"
+    "id": "squat-hack-squat-or-leg-press",
+    "name": "Squat, Hack Squat, or Leg Press",
+    "type": "compound",
+    "primaryMuscles": [
+      "quads"
     ],
-    "equipment": "Mixed",
-    "movementPattern": "Hinge",
-    "defaultRepMin": 5,
-    "defaultRepMax": 8,
-    "defaultRestSeconds": 180,
-    "progressionRule": "Conservative Progression"
-  },
-  {
-    "id": "front-squat-hack-squat-or-leg-press",
-    "name": "Front Squat, Hack Squat, or Leg Press",
-    "primaryMuscle": "Quads",
     "secondaryMuscles": [
-      "Glutes"
+      "glutes"
     ],
-    "equipment": "Mixed",
-    "movementPattern": "Press",
+    "volumeMuscles": [
+      "quads"
+    ],
+    "movementPattern": "Squat/Knee",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
-    "defaultRestSeconds": 150,
-    "progressionRule": "Double Progression"
+    "perSide": false,
+    "defaultRestMin": 180,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 3,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "45-hyperextension-glute-focused-or-cable-kickback",
+    "name": "45° Hyperextension (Glute-Focused) or Cable Kickback",
+    "type": "isolation",
+    "primaryMuscles": [
+      "glutes"
+    ],
+    "secondaryMuscles": [
+      "hamstrings",
+      "erectors"
+    ],
+    "volumeMuscles": [
+      "glutes"
+    ],
+    "movementPattern": "Hinge",
+    "defaultRepMin": 10,
+    "defaultRepMax": 15,
+    "perSide": false,
+    "defaultRestMin": 90,
+    "defaultRestMax": 90,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": "Replaces hip thrust — easier to progress in a busy gym, adds posterior-chain volume."
   },
   {
     "id": "bulgarian-split-squat-or-walking-lunge",
     "name": "Bulgarian Split Squat or Walking Lunge",
-    "primaryMuscle": "Quads",
-    "secondaryMuscles": [
-      "Glutes"
+    "type": "compound",
+    "primaryMuscles": [
+      "quads",
+      "glutes"
     ],
-    "equipment": "Mixed",
+    "secondaryMuscles": [
+      "hamstrings"
+    ],
+    "volumeMuscles": [
+      "quads",
+      "glutes"
+    ],
     "movementPattern": "Squat/Knee",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
-    "defaultRestSeconds": 120,
-    "progressionRule": "Rep Progression"
+    "perSide": true,
+    "defaultRestMin": 120,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 1,
+    "progressionRule": "Double Progression",
+    "note": undefined
   },
   {
-    "id": "leg-curl",
-    "name": "Leg Curl",
-    "primaryMuscle": "Hamstrings",
+    "id": "seated-leg-curl",
+    "name": "Seated Leg Curl",
+    "type": "isolation",
+    "primaryMuscles": [
+      "hamstrings"
+    ],
     "secondaryMuscles": [],
-    "equipment": "Free weight/bodyweight",
+    "volumeMuscles": [
+      "hamstrings"
+    ],
+    "movementPattern": "Isolation/Core",
+    "defaultRepMin": 8,
+    "defaultRepMax": 12,
+    "perSide": false,
+    "defaultRestMin": 90,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
+  },
+  {
+    "id": "seated-calf-raise",
+    "name": "Seated Calf Raise",
+    "type": "isolation",
+    "primaryMuscles": [
+      "calves"
+    ],
+    "secondaryMuscles": [],
+    "volumeMuscles": [
+      "calves"
+    ],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
-    "defaultRestSeconds": 90,
-    "progressionRule": "Rep Progression"
+    "perSide": false,
+    "defaultRestMin": 75,
+    "defaultRestMax": 90,
+    "rirTarget": "0-1",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
   },
   {
-    "id": "calf-raise",
-    "name": "Calf Raise",
-    "primaryMuscle": "Calves",
+    "id": "hanging-knee-raise-or-captain-s-chair-raise",
+    "name": "Hanging Knee Raise or Captain's Chair Raise",
+    "type": "isolation",
+    "primaryMuscles": [
+      "abs"
+    ],
     "secondaryMuscles": [],
-    "equipment": "Free weight/bodyweight",
+    "volumeMuscles": [
+      "abs_core"
+    ],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 20,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
-  },
-  {
-    "id": "ab-wheel-plank-or-cable-crunch",
-    "name": "Ab Wheel, Plank, or Cable Crunch",
-    "primaryMuscle": "Abs",
-    "secondaryMuscles": [],
-    "equipment": "Mixed",
-    "movementPattern": "Isolation/Core",
-    "defaultRepMin": 8,
-    "defaultRepMax": 20,
-    "defaultRestSeconds": 60,
-    "progressionRule": "Rep Progression"
+    "perSide": false,
+    "defaultRestMin": 60,
+    "defaultRestMax": 75,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 0,
+    "progressionRule": "Rep Progression",
+    "note": undefined
   }
 ];
 
@@ -367,25 +768,37 @@ export const seedTemplates: WorkoutTemplate[] = [
     "id": "upper-a",
     "name": "Upper A",
     "type": "Upper",
-    "sequenceOrder": 1
+    "sequenceOrder": 1,
+    "color": "#4f8cff",
+    "estMinMinutes": 85,
+    "estMaxMinutes": 100
   },
   {
     "id": "lower-a",
     "name": "Lower A",
     "type": "Lower",
-    "sequenceOrder": 2
+    "sequenceOrder": 2,
+    "color": "#3ecf8e",
+    "estMinMinutes": 80,
+    "estMaxMinutes": 90
   },
   {
     "id": "upper-b",
     "name": "Upper B",
     "type": "Upper",
-    "sequenceOrder": 3
+    "sequenceOrder": 3,
+    "color": "#b079f5",
+    "estMinMinutes": 85,
+    "estMaxMinutes": 100
   },
   {
     "id": "lower-b",
     "name": "Lower B",
     "type": "Lower",
-    "sequenceOrder": 4
+    "sequenceOrder": 4,
+    "color": "#f2a44b",
+    "estMinMinutes": 80,
+    "estMaxMinutes": 90
   }
 ];
 
@@ -393,119 +806,211 @@ export const seedTemplateExercises: TemplateExercise[] = [
   {
     "id": "upper-a:1",
     "templateId": "upper-a",
-    "exerciseId": "incline-db-press",
+    "exerciseId": "incline-dumbbell-press",
     "order": 1,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 6,
     "repMax": 10,
-    "restSeconds": 150,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 3,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": true,
-    "notes": "Main press; keep shoulder-friendly setup."
+    "notes": undefined
   },
   {
     "id": "upper-a:2",
     "templateId": "upper-a",
     "exerciseId": "chest-supported-row",
     "order": 2,
-    "targetSets": 3,
-    "repMin": 8,
-    "repMax": 12,
-    "restSeconds": 120,
+    "targetSets": 4,
+    "repMin": 6,
+    "repMax": 10,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 1,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Stable row variation; avoid low-back fatigue."
+    "notes": undefined
   },
   {
     "id": "upper-a:3",
     "templateId": "upper-a",
-    "exerciseId": "machine-chest-press-or-flat-db-press",
+    "exerciseId": "neutral-grip-lat-pulldown-or-pull-up",
     "order": 3,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 8,
     "repMax": 12,
-    "restSeconds": 120,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 120,
+    "rirTarget": "1-2",
+    "warmupSets": 1,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Choose the version that feels best on shoulders."
+    "notes": undefined
   },
   {
     "id": "upper-a:4",
     "templateId": "upper-a",
-    "exerciseId": "lat-pulldown",
+    "exerciseId": "seated-db-or-machine-shoulder-press",
     "order": 4,
-    "targetSets": 3,
-    "repMin": 8,
-    "repMax": 12,
-    "restSeconds": 120,
+    "targetSets": 2,
+    "repMin": 6,
+    "repMax": 10,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 120,
+    "rirTarget": "1-2",
+    "warmupSets": 1,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Use controlled stretch and full range."
+    "notes": undefined
   },
   {
     "id": "upper-a:5",
     "templateId": "upper-a",
-    "exerciseId": "lateral-raise",
+    "exerciseId": "pec-deck-or-cable-fly",
     "order": 5,
-    "targetSets": 3,
-    "repMin": 12,
-    "repMax": 20,
-    "restSeconds": 60,
+    "targetSets": 4,
+    "repMin": 10,
+    "repMax": 15,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Controlled reps; slight cheat only near end."
+    "notes": undefined
   },
   {
     "id": "upper-a:6",
     "templateId": "upper-a",
-    "exerciseId": "triceps-pressdown",
+    "exerciseId": "cable-lateral-raise",
     "order": 6,
-    "targetSets": 2,
-    "repMin": 10,
-    "repMax": 15,
-    "restSeconds": 60,
+    "targetSets": 4,
+    "repMin": 12,
+    "repMax": 20,
+    "perSide": false,
+    "restMin": 60,
+    "restMax": 75,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Elbows fixed; do not turn into a press."
+    "notes": undefined
   },
   {
     "id": "upper-a:7",
     "templateId": "upper-a",
-    "exerciseId": "db-curl-or-cable-curl",
+    "exerciseId": "face-pull",
     "order": 7,
-    "targetSets": 2,
+    "targetSets": 3,
+    "repMin": 12,
+    "repMax": 20,
+    "perSide": false,
+    "restMin": 60,
+    "restMax": 75,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": "Replaces reverse pec deck — adds external rotation + trap work for shoulder health."
+  },
+  {
+    "id": "upper-a:8",
+    "templateId": "upper-a",
+    "exerciseId": "incline-dumbbell-curl",
+    "order": 8,
+    "targetSets": 4,
+    "repMin": 8,
+    "repMax": 12,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": undefined
+  },
+  {
+    "id": "upper-a:9",
+    "templateId": "upper-a",
+    "exerciseId": "rope-pressdown",
+    "order": 9,
+    "targetSets": 4,
     "repMin": 10,
     "repMax": 15,
-    "restSeconds": 60,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Pick whichever feels better on elbows."
+    "notes": undefined
   },
   {
     "id": "lower-a:1",
     "templateId": "lower-a",
-    "exerciseId": "squat-or-hack-squat",
+    "exerciseId": "hack-squat-or-high-bar-squat",
     "order": 1,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 6,
     "repMax": 10,
-    "restSeconds": 180,
+    "perSide": false,
+    "restMin": 180,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 3,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": true,
-    "notes": "Quad-biased main lift."
+    "notes": undefined
   },
   {
     "id": "lower-a:2",
     "templateId": "lower-a",
     "exerciseId": "romanian-deadlift",
     "order": 2,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 6,
     "repMax": 10,
-    "restSeconds": 150,
+    "perSide": false,
+    "restMin": 180,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 2,
+    "countsTowardVolume": true,
     "progressionRule": "Conservative Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Stop before form breaks; track back fatigue notes."
+    "notes": undefined
   },
   {
     "id": "lower-a:3",
@@ -515,550 +1020,651 @@ export const seedTemplateExercises: TemplateExercise[] = [
     "targetSets": 2,
     "repMin": 10,
     "repMax": 15,
-    "restSeconds": 120,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 1,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Use consistent foot position."
+    "notes": "Trimmed 3→2 to keep weekly quad volume recoverable."
   },
   {
     "id": "lower-a:4",
     "templateId": "lower-a",
-    "exerciseId": "seated-or-lying-leg-curl",
+    "exerciseId": "lying-leg-curl",
     "order": 4,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 10,
     "repMax": 15,
-    "restSeconds": 90,
+    "perSide": false,
+    "restMin": 90,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Pause briefly in shortened position."
+    "notes": undefined
   },
   {
     "id": "lower-a:5",
     "templateId": "lower-a",
-    "exerciseId": "standing-or-seated-calf-raise",
+    "exerciseId": "leg-extension",
     "order": 5,
     "targetSets": 3,
-    "repMin": 8,
-    "repMax": 15,
-    "restSeconds": 60,
+    "repMin": 12,
+    "repMax": 20,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Full stretch; avoid bouncing."
+    "notes": undefined
   },
   {
     "id": "lower-a:6",
     "templateId": "lower-a",
-    "exerciseId": "cable-crunch-or-hanging-knee-raise",
+    "exerciseId": "standing-calf-raise",
     "order": 6,
-    "targetSets": 2,
-    "repMin": 10,
-    "repMax": 20,
-    "restSeconds": 60,
+    "targetSets": 5,
+    "repMin": 8,
+    "repMax": 12,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Add load when top reps are clean."
+    "notes": undefined
+  },
+  {
+    "id": "lower-a:7",
+    "templateId": "lower-a",
+    "exerciseId": "cable-crunch",
+    "order": 7,
+    "targetSets": 3,
+    "repMin": 10,
+    "repMax": 15,
+    "perSide": false,
+    "restMin": 60,
+    "restMax": 75,
+    "rirTarget": "1-2",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": undefined
+  },
+  {
+    "id": "lower-a:8",
+    "templateId": "lower-a",
+    "exerciseId": "pallof-press",
+    "order": 8,
+    "targetSets": 3,
+    "repMin": 8,
+    "repMax": 12,
+    "perSide": true,
+    "restMin": 45,
+    "restMax": 60,
+    "rirTarget": "1-2",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": "Anti-rotation / bracing — carries over to compounds."
   },
   {
     "id": "upper-b:1",
     "templateId": "upper-b",
-    "exerciseId": "pull-up-or-lat-pulldown",
+    "exerciseId": "flat-bench-press-or-machine-chest-press",
     "order": 1,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 6,
     "repMax": 10,
-    "restSeconds": 150,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 3,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": true,
-    "notes": "Main vertical pull target."
+    "notes": undefined
   },
   {
     "id": "upper-b:2",
     "templateId": "upper-b",
-    "exerciseId": "seated-db-shoulder-press-or-machine-press",
+    "exerciseId": "weighted-pull-up-or-neutral-pulldown",
     "order": 2,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 6,
     "repMax": 10,
-    "restSeconds": 150,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 2,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
-    "isMainLift": true,
-    "notes": "Use pain-free range."
+    "exerciseType": "compound",
+    "isMainLift": false,
+    "notes": undefined
   },
   {
     "id": "upper-b:3",
     "templateId": "upper-b",
     "exerciseId": "cable-row",
     "order": 3,
-    "targetSets": 3,
+    "targetSets": 4,
     "repMin": 8,
     "repMax": 12,
-    "restSeconds": 120,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 120,
+    "rirTarget": "1-2",
+    "warmupSets": 1,
+    "countsTowardVolume": true,
     "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Keep torso position consistent."
+    "notes": undefined
   },
   {
     "id": "upper-b:4",
     "templateId": "upper-b",
-    "exerciseId": "pec-deck-or-cable-fly",
+    "exerciseId": "low-incline-dumbbell-press",
     "order": 4,
-    "targetSets": 3,
-    "repMin": 10,
-    "repMax": 15,
-    "restSeconds": 90,
-    "progressionRule": "Rep Progression",
+    "targetSets": 4,
+    "repMin": 8,
+    "repMax": 12,
+    "perSide": false,
+    "restMin": 120,
+    "restMax": 120,
+    "rirTarget": "1-2",
+    "warmupSets": 1,
+    "countsTowardVolume": true,
+    "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Controlled stretch; avoid shoulder irritation."
+    "notes": undefined
   },
   {
     "id": "upper-b:5",
     "templateId": "upper-b",
-    "exerciseId": "rear-delt-fly",
+    "exerciseId": "cable-fly-or-pec-deck",
     "order": 5,
-    "targetSets": 3,
+    "targetSets": 2,
     "repMin": 12,
     "repMax": 20,
-    "restSeconds": 60,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Think elbows out, not hands back."
+    "notes": undefined
   },
   {
     "id": "upper-b:6",
     "templateId": "upper-b",
-    "exerciseId": "incline-db-curl",
+    "exerciseId": "machine-or-cable-lateral-raise",
     "order": 6,
-    "targetSets": 2,
-    "repMin": 10,
-    "repMax": 15,
-    "restSeconds": 60,
+    "targetSets": 4,
+    "repMin": 12,
+    "repMax": 20,
+    "perSide": false,
+    "restMin": 60,
+    "restMax": 75,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Stretch-focused biceps work."
+    "notes": undefined
   },
   {
     "id": "upper-b:7",
     "templateId": "upper-b",
-    "exerciseId": "overhead-cable-triceps-extension",
+    "exerciseId": "rear-delt-cable-fly",
     "order": 7,
-    "targetSets": 2,
+    "targetSets": 3,
+    "repMin": 12,
+    "repMax": 20,
+    "perSide": false,
+    "restMin": 60,
+    "restMax": 75,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": undefined
+  },
+  {
+    "id": "upper-b:8",
+    "templateId": "upper-b",
+    "exerciseId": "cable-curl-or-ez-bar-curl",
+    "order": 8,
+    "targetSets": 4,
+    "repMin": 8,
+    "repMax": 12,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": "Cable preferred — better peak tension at shortened position, cleaner load jumps."
+  },
+  {
+    "id": "upper-b:9",
+    "templateId": "upper-b",
+    "exerciseId": "overhead-cable-triceps-extension",
+    "order": 9,
+    "targetSets": 4,
     "repMin": 10,
     "repMax": 15,
-    "restSeconds": 60,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Long-head triceps emphasis."
+    "notes": undefined
   },
   {
     "id": "lower-b:1",
     "templateId": "lower-b",
-    "exerciseId": "deadlift-variation-or-hip-thrust",
+    "exerciseId": "squat-hack-squat-or-leg-press",
     "order": 1,
-    "targetSets": 2,
-    "repMin": 5,
-    "repMax": 8,
-    "restSeconds": 180,
-    "progressionRule": "Conservative Progression",
+    "targetSets": 4,
+    "repMin": 8,
+    "repMax": 12,
+    "perSide": false,
+    "restMin": 180,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 3,
+    "countsTowardVolume": true,
+    "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": true,
-    "notes": "Choose based on recovery and low-back tolerance."
+    "notes": undefined
   },
   {
     "id": "lower-b:2",
     "templateId": "lower-b",
-    "exerciseId": "front-squat-hack-squat-or-leg-press",
+    "exerciseId": "45-hyperextension-glute-focused-or-cable-kickback",
     "order": 2,
     "targetSets": 3,
-    "repMin": 8,
-    "repMax": 12,
-    "restSeconds": 150,
-    "progressionRule": "Double Progression",
-    "isMainLift": true,
-    "notes": "Secondary lower-body main target."
+    "repMin": 10,
+    "repMax": 15,
+    "perSide": false,
+    "restMin": 90,
+    "restMax": 90,
+    "rirTarget": "1-2",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": "Replaces hip thrust — easier to progress in a busy gym, adds posterior-chain volume."
   },
   {
     "id": "lower-b:3",
     "templateId": "lower-b",
     "exerciseId": "bulgarian-split-squat-or-walking-lunge",
     "order": 3,
-    "targetSets": 2,
+    "targetSets": 3,
     "repMin": 8,
     "repMax": 12,
-    "restSeconds": 120,
-    "progressionRule": "Rep Progression",
+    "perSide": true,
+    "restMin": 120,
+    "restMax": 180,
+    "rirTarget": "1-2",
+    "warmupSets": 1,
+    "countsTowardVolume": true,
+    "progressionRule": "Double Progression",
+    "exerciseType": "compound",
     "isMainLift": false,
-    "notes": "Each leg; keep stable and controlled."
+    "notes": undefined
   },
   {
     "id": "lower-b:4",
     "templateId": "lower-b",
-    "exerciseId": "leg-curl",
+    "exerciseId": "seated-leg-curl",
     "order": 4,
-    "targetSets": 3,
-    "repMin": 10,
-    "repMax": 15,
-    "restSeconds": 90,
+    "targetSets": 4,
+    "repMin": 8,
+    "repMax": 12,
+    "perSide": false,
+    "restMin": 90,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Second hamstring curl exposure."
+    "notes": undefined
   },
   {
     "id": "lower-b:5",
     "templateId": "lower-b",
-    "exerciseId": "calf-raise",
+    "exerciseId": "leg-extension",
     "order": 5,
     "targetSets": 3,
-    "repMin": 10,
+    "repMin": 12,
     "repMax": 20,
-    "restSeconds": 60,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Full stretch and pause."
+    "notes": undefined
   },
   {
     "id": "lower-b:6",
     "templateId": "lower-b",
-    "exerciseId": "ab-wheel-plank-or-cable-crunch",
+    "exerciseId": "seated-calf-raise",
     "order": 6,
-    "targetSets": 2,
-    "repMin": 8,
-    "repMax": 20,
-    "restSeconds": 60,
+    "targetSets": 5,
+    "repMin": 10,
+    "repMax": 15,
+    "perSide": false,
+    "restMin": 75,
+    "restMax": 90,
+    "rirTarget": "0-1",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
     "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": "Progress slowly; avoid sloppy reps."
-  }
-];
-
-export const seedSwapGroups: SwapGroup[] = [
-  {
-    "id": "swap-1",
-    "baseExercise": "Incline DB Press",
-    "swapOption": "Incline Machine Press",
-    "swapGroup": "Incline Press",
-    "countsToward": "Chest",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Good when DB setup is busy."
+    "notes": undefined
   },
   {
-    "id": "swap-2",
-    "baseExercise": "Incline DB Press",
-    "swapOption": "Smith Incline Press",
-    "swapGroup": "Incline Press",
-    "countsToward": "Chest",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Stable alternative."
-  },
-  {
-    "id": "swap-3",
-    "baseExercise": "Incline DB Press",
-    "swapOption": "Flat DB Press",
-    "swapGroup": "Horizontal Press",
-    "countsToward": "Chest",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Less incline/front delt emphasis."
-  },
-  {
-    "id": "swap-4",
-    "baseExercise": "Incline DB Press",
-    "swapOption": "Machine Chest Press",
-    "swapGroup": "Horizontal Press",
-    "countsToward": "Chest",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Shoulder-friendly option."
-  },
-  {
-    "id": "swap-5",
-    "baseExercise": "Chest-Supported Row",
-    "swapOption": "Seated Cable Row",
-    "swapGroup": "Horizontal Pull",
-    "countsToward": "Back",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Good machine/cable swap."
-  },
-  {
-    "id": "swap-6",
-    "baseExercise": "Chest-Supported Row",
-    "swapOption": "Machine Row",
-    "swapGroup": "Horizontal Pull",
-    "countsToward": "Back",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Very comparable."
-  },
-  {
-    "id": "swap-7",
-    "baseExercise": "Chest-Supported Row",
-    "swapOption": "One-Arm DB Row",
-    "swapGroup": "Horizontal Pull",
-    "countsToward": "Back",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "More setup and bracing required."
-  },
-  {
-    "id": "swap-8",
-    "baseExercise": "Squat or Hack Squat",
-    "swapOption": "Hack Squat",
-    "swapGroup": "Squat/Knee Dominant",
-    "countsToward": "Quads",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Great quad-biased option."
-  },
-  {
-    "id": "swap-9",
-    "baseExercise": "Squat or Hack Squat",
-    "swapOption": "Leg Press",
-    "swapGroup": "Squat/Knee Dominant",
-    "countsToward": "Quads",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Less technical; stable."
-  },
-  {
-    "id": "swap-10",
-    "baseExercise": "Squat or Hack Squat",
-    "swapOption": "Smith Squat",
-    "swapGroup": "Squat/Knee Dominant",
-    "countsToward": "Quads",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Consistent setup matters."
-  },
-  {
-    "id": "swap-11",
-    "baseExercise": "Romanian Deadlift",
-    "swapOption": "Dumbbell RDL",
-    "swapGroup": "Hinge",
-    "countsToward": "Hamstrings",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Similar pattern with different load limit."
-  },
-  {
-    "id": "swap-12",
-    "baseExercise": "Romanian Deadlift",
-    "swapOption": "Smith RDL",
-    "swapGroup": "Hinge",
-    "countsToward": "Hamstrings",
-    "comparisonRule": "Same muscle volume, separate PR history",
-    "notes": "Stable bar path."
-  },
-  {
-    "id": "swap-13",
-    "baseExercise": "Romanian Deadlift",
-    "swapOption": "Hip Thrust",
-    "swapGroup": "Hip Extension",
-    "countsToward": "Glutes",
-    "comparisonRule": "Not identical; glute-biased substitute",
-    "notes": "Use when low back/hamstrings need a break."
-  },
-  {
-    "id": "swap-14",
-    "baseExercise": "Romanian Deadlift",
-    "swapOption": "Seated Leg Curl + Back Extension",
-    "swapGroup": "Hinge Substitute",
-    "countsToward": "Hamstrings",
-    "comparisonRule": "Volume preserved, not direct PR comparison",
-    "notes": "Good workaround if hinges feel bad."
+    "id": "lower-b:7",
+    "templateId": "lower-b",
+    "exerciseId": "hanging-knee-raise-or-captain-s-chair-raise",
+    "order": 7,
+    "targetSets": 3,
+    "repMin": 10,
+    "repMax": 20,
+    "perSide": false,
+    "restMin": 60,
+    "restMax": 75,
+    "rirTarget": "1-2",
+    "warmupSets": 0,
+    "countsTowardVolume": true,
+    "progressionRule": "Rep Progression",
+    "exerciseType": "isolation",
+    "isMainLift": false,
+    "notes": undefined
   }
 ];
 
 export const seedVolumeTargets: VolumeTarget[] = [
   {
-    "muscle": "Chest",
-    "minSets": 8,
-    "maxSets": 12,
-    "directPrimarySets": 9,
-    "notes": "Primary/direct sets only. Pressing and flys."
+    "muscle": "chest",
+    "label": "Chest",
+    "targetSets": 18,
+    "minSets": 16,
+    "maxSets": 20,
+    "note": undefined
   },
   {
-    "muscle": "Back",
-    "minSets": 12,
-    "maxSets": 16,
-    "directPrimarySets": 12,
-    "notes": "Primary/direct sets only. Rows + pulldowns/pullups."
+    "muscle": "back_lats_upper_back",
+    "label": "Back / Lats",
+    "targetSets": 16,
+    "minSets": 14,
+    "maxSets": 18,
+    "note": undefined
   },
   {
-    "muscle": "Quads",
+    "muscle": "side_delts",
+    "label": "Side Delts",
+    "targetSets": 8,
+    "minSets": 6,
+    "maxSets": 10,
+    "note": undefined
+  },
+  {
+    "muscle": "rear_delts",
+    "label": "Rear Delts",
+    "targetSets": 6,
+    "minSets": 4,
+    "maxSets": 8,
+    "note": "6 direct + rows + face pull external rotation"
+  },
+  {
+    "muscle": "front_delts",
+    "label": "Front Delts",
+    "targetSets": 2,
+    "minSets": 0,
+    "maxSets": 4,
+    "note": "2 direct + all pressing"
+  },
+  {
+    "muscle": "biceps",
+    "label": "Biceps",
+    "targetSets": 8,
+    "minSets": 6,
+    "maxSets": 10,
+    "note": "8 direct + all pulling"
+  },
+  {
+    "muscle": "triceps",
+    "label": "Triceps",
+    "targetSets": 8,
+    "minSets": 6,
+    "maxSets": 10,
+    "note": "8 direct + all pressing"
+  },
+  {
+    "muscle": "quads",
+    "label": "Quads",
+    "targetSets": 18,
+    "minSets": 16,
+    "maxSets": 20,
+    "note": "direct/effective; trimmed from ~20 for recovery"
+  },
+  {
+    "muscle": "hamstrings",
+    "label": "Hamstrings",
+    "targetSets": 12,
     "minSets": 10,
     "maxSets": 14,
-    "directPrimarySets": 10,
-    "notes": "Primary/direct sets only. Squat/hack/leg press/lunges."
+    "note": undefined
   },
   {
-    "muscle": "Hamstrings",
+    "muscle": "glutes",
+    "label": "Glutes",
+    "targetSets": 14,
+    "minSets": 12,
+    "maxSets": 16,
+    "note": "effective sets across hinges, hyperext, split squats"
+  },
+  {
+    "muscle": "calves",
+    "label": "Calves",
+    "targetSets": 10,
     "minSets": 8,
     "maxSets": 12,
-    "directPrimarySets": 9,
-    "notes": "Primary/direct sets only. RDL/hinges + curls."
+    "note": undefined
   },
   {
-    "muscle": "Glutes",
-    "minSets": 4,
-    "maxSets": 10,
-    "directPrimarySets": 2,
-    "notes": "Primary/direct sets only. Also receives indirect work on squats/hinges."
-  },
-  {
-    "muscle": "Side delts",
-    "minSets": 5,
-    "maxSets": 12,
-    "directPrimarySets": 3,
-    "notes": "Primary/direct sets only. Direct lateral raise volume."
-  },
-  {
-    "muscle": "Rear delts",
-    "minSets": 3,
-    "maxSets": 8,
-    "directPrimarySets": 3,
-    "notes": "Primary/direct sets only. Rows add indirect rear-delt work."
-  },
-  {
-    "muscle": "Biceps",
-    "minSets": 4,
-    "maxSets": 10,
-    "directPrimarySets": 4,
-    "notes": "Primary/direct sets only. Pulling adds indirect biceps work."
-  },
-  {
-    "muscle": "Triceps",
-    "minSets": 4,
-    "maxSets": 10,
-    "directPrimarySets": 4,
-    "notes": "Primary/direct sets only. Pressing adds indirect triceps work."
-  },
-  {
-    "muscle": "Calves",
-    "minSets": 6,
-    "maxSets": 12,
-    "directPrimarySets": 6,
-    "notes": "Primary/direct sets only. Two lower days."
-  },
-  {
-    "muscle": "Abs",
-    "minSets": 4,
-    "maxSets": 10,
-    "directPrimarySets": 4,
-    "notes": "Primary/direct sets only. Two lower days."
+    "muscle": "abs_core",
+    "label": "Abs / Core",
+    "targetSets": 9,
+    "minSets": 7,
+    "maxSets": 11,
+    "note": "includes anti-rotation (Pallof)"
   }
 ];
+
+export const seedWeeklySchedule: WeeklyScheduleDay[] = [
+  {
+    "id": "monday",
+    "dayIndex": 0,
+    "day": "Monday",
+    "type": "workout",
+    "label": "Upper A",
+    "templateId": "upper-a"
+  },
+  {
+    "id": "tuesday",
+    "dayIndex": 1,
+    "day": "Tuesday",
+    "type": "workout",
+    "label": "Lower A",
+    "templateId": "lower-a"
+  },
+  {
+    "id": "wednesday",
+    "dayIndex": 2,
+    "day": "Wednesday",
+    "type": "cardio_or_rest",
+    "label": "Zone 2 / Recovery",
+    "cardioMinMinutes": 30,
+    "cardioMaxMinutes": 45
+  },
+  {
+    "id": "thursday",
+    "dayIndex": 3,
+    "day": "Thursday",
+    "type": "workout",
+    "label": "Upper B",
+    "templateId": "upper-b"
+  },
+  {
+    "id": "friday",
+    "dayIndex": 4,
+    "day": "Friday",
+    "type": "workout",
+    "label": "Lower B",
+    "templateId": "lower-b"
+  },
+  {
+    "id": "saturday",
+    "dayIndex": 5,
+    "day": "Saturday",
+    "type": "cardio",
+    "label": "Cardio Day",
+    "cardioMinMinutes": 35,
+    "cardioMaxMinutes": 60,
+    "note": "scale down if performance is dropping"
+  },
+  {
+    "id": "sunday",
+    "dayIndex": 6,
+    "day": "Sunday",
+    "type": "rest",
+    "label": "Full Rest",
+    "note": "walking/mobility only"
+  }
+];
+
+export const seedProgramMeta: ProgramMeta = {
+  "id": "program",
+  "name": "Max Productive Upper/Lower Split",
+  "version": "2026-06-26-rev2",
+  "seedVersion": "v2-maxvol-2026-06-26",
+  "experienceLevel": "advanced",
+  "goal": "hypertrophy_with_strength",
+  "philosophy": {
+    "compoundRIR": "1-2",
+    "isolationRIR": "0-1",
+    "avoidTrueFailureOn": [
+      "heavy squats",
+      "heavy hinges"
+    ],
+    "warmupsCountTowardVolume": false
+  },
+  "deload": {
+    "triggers": [
+      "same movement pattern drops for 2 consecutive exposures",
+      "RIR much lower than intended at same weight/reps",
+      "repeated joint pain or soreness logged",
+      "poor sleep/readiness with falling performance"
+    ],
+    "reduceMinPercent": 30,
+    "reduceMaxPercent": 50,
+    "durationWeeks": 1,
+    "keepMovementPatterns": true,
+    "avoidFailure": true
+  },
+  "warmup": {
+    "firstCompoundRampSets": 2,
+    "firstCompoundRampPercents": [
+      50,
+      75
+    ],
+    "secondHeavyCompoundRampSets": 1,
+    "lowerDayActivation": [
+      "glute bridges",
+      "band walks",
+      "90/90 hip work"
+    ],
+    "countsTowardVolume": false
+  }
+};
 
 export const seedProgressionRules: ProgressionRuleInfo[] = [
   {
     "rule": "Double Progression",
     "usedFor": "Compounds and stable machine lifts",
-    "trigger": "User hits top of rep range on all target sets",
-    "suggestion": "Increase load next session by smallest practical jump",
-    "notes": "Example 3x6-10: 10/10/10 means increase. 10/9/8 means stay and add reps."
+    "trigger": "All working sets hit the top of the rep range at target RIR",
+    "suggestion": "Increase load next session by the smallest practical jump",
+    "notes": "Until then, keep the weight and add reps (total reps is the comparison metric)."
   },
   {
     "rule": "Rep Progression",
     "usedFor": "Isolation work",
-    "trigger": "User approaches top of rep range across most sets",
-    "suggestion": "Add small load or move to harder variation",
-    "notes": "For 3x12-20, do not increase too early. Build clean reps first."
+    "trigger": "Clean reps near the top of the range across most sets",
+    "suggestion": "Add a small load (or harder variation); build reps first",
+    "notes": "Do not increase load too early."
   },
   {
     "rule": "Conservative Progression",
-    "usedFor": "RDLs, deadlifts, heavy hinges",
-    "trigger": "Reps improve and RIR remains 1-3 with clean notes",
-    "suggestion": "Same weight or small increase",
-    "notes": "Avoid aggressive increases when low-back fatigue/pain notes appear."
+    "usedFor": "Heavy hinges (RDL) and deadlifts",
+    "trigger": "Reps improve with reps in reserve and clean, pain-free notes",
+    "suggestion": "Repeat the weight or take a small increase only",
+    "notes": "Avoid aggressive jumps; watch low-back fatigue."
   },
   {
-    "rule": "Fatigue Warning",
-    "usedFor": "All exercises",
-    "trigger": "Performance down 2+ sessions in a row",
-    "suggestion": "Consider longer rest, lower volume, deload, or exercise swap",
-    "notes": "Do not diagnose injury; treat pain notes as a warning to adjust."
-  },
-  {
-    "rule": "Weekly Volume",
-    "usedFor": "Muscle groups",
-    "trigger": "Sets are below or above target range",
-    "suggestion": "Preserve, add, or reduce sets depending on recovery and progress",
-    "notes": "Weekly set volume should be a dashboard calculation."
-  }
-];
-
-// One completed session + its sets, so last-session comparison and progression
-// suggestions have data to work with on a fresh install.
-export const seedSampleSession: WorkoutSession = {
-  "id": "seed-session-1",
-  "templateId": "upper-a",
-  "date": "2026-06-25",
-  "startedAt": "2026-06-25T18:00:00",
-  "endedAt": "2026-06-25T18:42:00",
-  "notes": "Seed session from workbook sample log."
-};
-
-export const seedSampleSets: SetEntry[] = [
-  {
-    "id": "seed-set-1",
-    "sessionId": "seed-session-1",
-    "exerciseId": "incline-db-press",
-    "setNumber": 1,
-    "weight": 70.0,
-    "reps": 9,
-    "rir": 1,
-    "isWarmup": false,
-    "notes": undefined,
-    "createdAt": "2026-06-25T18:00:00"
-  },
-  {
-    "id": "seed-set-2",
-    "sessionId": "seed-session-1",
-    "exerciseId": "incline-db-press",
-    "setNumber": 2,
-    "weight": 70.0,
-    "reps": 8,
-    "rir": 1,
-    "isWarmup": false,
-    "notes": undefined,
-    "createdAt": "2026-06-25T18:02:00"
-  },
-  {
-    "id": "seed-set-3",
-    "sessionId": "seed-session-1",
-    "exerciseId": "incline-db-press",
-    "setNumber": 3,
-    "weight": 70.0,
-    "reps": 7,
-    "rir": 0,
-    "isWarmup": false,
-    "notes": undefined,
-    "createdAt": "2026-06-25T18:04:00"
-  },
-  {
-    "id": "seed-set-4",
-    "sessionId": "seed-session-1",
-    "exerciseId": "chest-supported-row",
-    "setNumber": 1,
-    "weight": 120.0,
-    "reps": 10,
-    "rir": 2,
-    "isWarmup": false,
-    "notes": undefined,
-    "createdAt": "2026-06-25T18:06:00"
-  },
-  {
-    "id": "seed-set-5",
-    "sessionId": "seed-session-1",
-    "exerciseId": "chest-supported-row",
-    "setNumber": 2,
-    "weight": 120.0,
-    "reps": 9,
-    "rir": 1,
-    "isWarmup": false,
-    "notes": undefined,
-    "createdAt": "2026-06-25T18:08:00"
-  },
-  {
-    "id": "seed-set-6",
-    "sessionId": "seed-session-1",
-    "exerciseId": "chest-supported-row",
-    "setNumber": 3,
-    "weight": 120.0,
-    "reps": 8,
-    "rir": 1,
-    "isWarmup": false,
-    "notes": undefined,
-    "createdAt": "2026-06-25T18:10:00"
+    "rule": "Deload",
+    "usedFor": "Whole program",
+    "trigger": "same movement pattern drops for 2 consecutive exposures; RIR much lower than intended at same weight/reps; repeated joint pain or soreness logged; poor sleep/readiness with falling performance",
+    "suggestion": "Cut working sets 30-50% for 1 week, keep patterns, avoid failure",
+    "notes": "Not a diagnosis — a cue to reduce fatigue and resensitize."
   }
 ];
