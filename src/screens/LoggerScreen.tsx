@@ -9,10 +9,11 @@ import {
   getNextTemplate,
   getSetsForSession,
   getSettings,
+  setSessionSwap,
   startSession,
 } from "../db/repo";
-import { getUpcomingPlan } from "../engine/analysis";
-import type { SetEntry } from "../types";
+import { getUpcomingPlan, type PlanItem } from "../engine/analysis";
+import type { Exercise, SetEntry } from "../types";
 import { fmtNum, plural } from "../lib/format";
 import ExerciseCard from "../components/ExerciseCard";
 import RestTimer from "../components/RestTimer";
@@ -25,6 +26,7 @@ export default function LoggerScreen() {
   const navigate = useNavigate();
   const toast = useToast();
   const [rest, setRest] = useState<{ endAt: number; totalMs: number } | null>(null);
+  const [swapTarget, setSwapTarget] = useState<PlanItem | null>(null);
 
   const data = useLiveQuery(async () => {
     let session = sessionId ? await db.workoutSessions.get(sessionId) : undefined;
@@ -34,12 +36,13 @@ export default function LoggerScreen() {
     if (!session) return { session: null, next: (await getNextTemplate()).template };
 
     const template = await db.workoutTemplates.get(session.templateId);
-    const [plan, sets, settings] = await Promise.all([
-      template ? getUpcomingPlan(template, session.id) : Promise.resolve(null),
+    const [plan, sets, settings, allExercises] = await Promise.all([
+      template ? getUpcomingPlan(template, session.id, session.swaps) : Promise.resolve(null),
       getSetsForSession(session.id),
       getSettings(),
+      db.exercises.toArray(),
     ]);
-    return { session, template, plan, sets, settings };
+    return { session, template, plan, sets, settings, allExercises };
   }, [sessionId]);
 
   if (!data) return <ScreenSkeleton />;
@@ -74,7 +77,8 @@ export default function LoggerScreen() {
     );
   }
 
-  const { session, plan, sets, settings } = data;
+  const { session, plan, sets, settings, allExercises } = data;
+  const isEditing = !!session.endedAt;
 
   // Group logged sets by exercise.
   const byExercise = new Map<string, SetEntry[]>();
@@ -95,6 +99,11 @@ export default function LoggerScreen() {
   }
 
   async function finish() {
+    if (isEditing) {
+      // Already completed — edits are saved live; keep the original endedAt.
+      navigate(`/summary/${session.id}`);
+      return;
+    }
     if (working.length === 0) {
       const ok = window.confirm("No working sets logged. Finish anyway?");
       if (!ok) return;
@@ -115,10 +124,10 @@ export default function LoggerScreen() {
     <div className="screen">
       <ScreenHeader
         title={plan.template.name}
-        subtitle={`${plural(working.length, "set")} · ${fmtNum(totalVolume)} ${settings.unit} volume`}
+        subtitle={`${plural(working.length, "set")} · ${fmtNum(totalVolume)} ${settings.unit} volume${isEditing ? " · editing" : ""}`}
         right={
           <button className="btn-primary btn-sm" onClick={finish}>
-            Finish
+            {isEditing ? "Done" : "Finish"}
           </button>
         }
       />
@@ -131,17 +140,32 @@ export default function LoggerScreen() {
           unit={settings.unit}
           sessionId={session.id}
           onSetLogged={onSetLogged}
+          onRequestSwap={() => setSwapTarget(item)}
         />
       ))}
 
       <div className="row mt-lg" style={{ gap: 10 }}>
         <button className="btn-primary btn-lg grow" onClick={finish}>
-          Finish workout
+          {isEditing ? "Done editing" : "Finish workout"}
         </button>
-        <button className="btn-danger" onClick={discard}>
-          Discard
-        </button>
+        {!isEditing && (
+          <button className="btn-danger" onClick={discard}>
+            Discard
+          </button>
+        )}
       </div>
+
+      {swapTarget && (
+        <SwapSheet
+          item={swapTarget}
+          allExercises={allExercises}
+          onPick={async (exerciseId) => {
+            await setSessionSwap(session.id, swapTarget.templateExercise.id, exerciseId);
+            setSwapTarget(null);
+          }}
+          onClose={() => setSwapTarget(null)}
+        />
+      )}
 
       {rest && (
         <RestTimer
@@ -160,5 +184,65 @@ export default function LoggerScreen() {
         />
       )}
     </div>
+  );
+}
+
+
+// Bottom sheet for swapping a slot's exercise this session. Suggestions share
+// a volume muscle with the ORIGINAL slot exercise; the rest of the library
+// follows underneath.
+function SwapSheet({
+  item,
+  allExercises,
+  onPick,
+  onClose,
+}: {
+  item: PlanItem;
+  allExercises: Exercise[];
+  onPick: (exerciseId: string | null) => void;
+  onClose: () => void;
+}) {
+  const original = item.swappedFrom ?? item.exercise;
+  const current = item.exercise;
+  const shares = (e: Exercise) =>
+    e.volumeMuscles.some((m) => original.volumeMuscles.includes(m));
+  const candidates = allExercises.filter((e) => e.id !== current.id && e.id !== original.id);
+  const suggested = candidates.filter(shares);
+  const others = candidates.filter((e) => !shares(e));
+
+  const Option = ({ e }: { e: Exercise }) => (
+    <button className="btn-block" style={{ justifyContent: "space-between" }} onClick={() => onPick(e.id)}>
+      <span>{e.name}</span>
+      <span className="faint tiny">{e.primaryMuscles.join("/")}</span>
+    </button>
+  );
+
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+        <h3 className="mb">Swap {original.name}</h3>
+        {item.swappedFrom && (
+          <button className="btn-block mb" style={{ borderColor: "var(--accent)", color: "var(--accent)" }} onClick={() => onPick(null)}>
+            ↩ Back to {original.name}
+          </button>
+        )}
+        {suggested.length > 0 && (
+          <>
+            <div className="faint tiny mb">Same muscle</div>
+            <div className="col mb">{suggested.map((e) => <Option key={e.id} e={e} />)}</div>
+          </>
+        )}
+        {others.length > 0 && (
+          <>
+            <div className="faint tiny mb">Everything else</div>
+            <div className="col">{others.map((e) => <Option key={e.id} e={e} />)}</div>
+          </>
+        )}
+        <button className="btn-ghost btn-block mt" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </>
   );
 }

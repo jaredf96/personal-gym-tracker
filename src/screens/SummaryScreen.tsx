@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate, useParams } from "react-router-dom";
 import { db } from "../db/db";
 import { analyzeSession, getExerciseHistoryWithPRs } from "../engine/analysis";
-import { getSettings, getWeeklySchedule, listTemplates } from "../db/repo";
+import { deleteSession, getSettings, getWeeklySchedule, listTemplates } from "../db/repo";
 import ScreenSkeleton from "../components/Skeleton";
 import { describeDate } from "../engine/schedule";
 import { generateCoachSummary, getLatestReportForSession } from "../ai/coachService";
@@ -187,6 +187,24 @@ export default function SummaryScreen() {
           </div>
         </div>
       )}
+
+      {/* Session management */}
+      <div className="row mt-lg" style={{ gap: 10 }}>
+        <button className="grow" onClick={() => navigate(`/workout/${analysis.session.id}`)}>
+          ✏️ Edit sets
+        </button>
+        <button
+          className="btn-danger grow"
+          onClick={async () => {
+            if (!window.confirm("Delete this workout and all its sets? This cannot be undone."))
+              return;
+            await deleteSession(analysis.session.id);
+            navigate("/calendar");
+          }}
+        >
+          Delete workout
+        </button>
+      </div>
 
       {/* Per-exercise comparison + next-time suggestion */}
       <h3 className="mt-lg mb">Exercise breakdown</h3>

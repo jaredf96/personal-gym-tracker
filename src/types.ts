@@ -132,6 +132,9 @@ export interface WorkoutSession {
   endedAt?: string; // ISO timestamp; presence => session completed
   notes?: string;
   isDeload?: boolean;
+  // Per-session exercise swaps: templateExerciseId -> substituted exerciseId.
+  // Sets log under the substitute, so each exercise keeps its own PR history.
+  swaps?: Record<string, string>;
 }
 
 export interface SetEntry {
@@ -175,14 +178,6 @@ export interface ReadinessLog {
   notes?: string;
 }
 
-export interface PersonalNote {
-  id: string;
-  date: string; // YYYY-MM-DD
-  text: string;
-  exerciseId?: string;
-  sessionId?: string;
-}
-
 export interface Settings {
   id: "app";
   unit: Unit;
@@ -197,7 +192,9 @@ export interface AiReport {
   sessionId?: string;
   createdAt: string;
   provider: string;
-  context: unknown;
+  // Context snapshots were never read back and bloated every backup/sync row;
+  // reports now store only the rendered output.
+  context?: unknown;
   headline: string;
   summary: string;
   bullets: string[];
@@ -206,16 +203,6 @@ export interface AiReport {
 // ---------------------------------------------------------------------------
 // Reference seed data
 // ---------------------------------------------------------------------------
-
-export interface SwapGroup {
-  id: string;
-  baseExercise: string;
-  swapOption: string;
-  swapGroup: string;
-  countsToward: string;
-  comparisonRule: string;
-  notes?: string;
-}
 
 export interface VolumeTarget {
   muscle: string; // canonical key e.g. "back_lats_upper_back"

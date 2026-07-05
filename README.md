@@ -24,6 +24,7 @@ LAN, so you can open the Network URL on your phone and "Add to Home Screen" to u
 npm run build      # type-check + production build into dist/
 npm run preview    # serve the production build (service worker active here)
 npm run typecheck  # types only
+npm test           # vitest suite for the deterministic training engine
 ```
 
 On first launch the app seeds IndexedDB from the workbook (exercise library, the four

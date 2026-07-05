@@ -54,7 +54,8 @@ function fallbackTemplateExercise(ex: Exercise): TemplateExercise {
 
 export interface PlanItem {
   templateExercise: TemplateExercise;
-  exercise: Exercise;
+  exercise: Exercise; // the EFFECTIVE exercise (post-swap)
+  swappedFrom: Exercise | null; // original slot exercise when swapped
   previousSets: SetEntry[] | null;
   previousStats: SetStats | null;
   suggestion: ProgressionSuggestion;
@@ -67,20 +68,39 @@ export interface UpcomingPlan {
 
 export async function getUpcomingPlan(
   template: WorkoutTemplate,
-  activeSessionId?: string
+  activeSessionId?: string,
+  swaps?: Record<string, string>
 ): Promise<UpcomingPlan> {
-  const [views, settings] = await Promise.all([
+  const [views, settings, exercisesById] = await Promise.all([
     getTemplateExerciseViews(template.id),
     getSettings(),
+    getExercisesById(),
   ]);
 
   const items: PlanItem[] = [];
-  for (const { templateExercise, exercise } of views) {
+  for (const view of views) {
+    // Apply a per-session swap: the slot keeps its prescription (sets/reps/
+    // rest/RIR — the training intent), while identity, history, and the
+    // progression rule follow the substituted exercise.
+    const swapId = swaps?.[view.templateExercise.id];
+    const swapped = swapId ? exercisesById.get(swapId) : undefined;
+    const exercise = swapped ?? view.exercise;
+    const templateExercise: TemplateExercise = swapped
+      ? {
+          ...view.templateExercise,
+          exerciseId: swapped.id,
+          progressionRule: swapped.progressionRule,
+          exerciseType: swapped.type,
+          perSide: swapped.perSide,
+        }
+      : view.templateExercise;
+
     const previousSets = await getPreviousExerciseSets(exercise.id, activeSessionId);
     const suggestion = suggestProgression(templateExercise, exercise, previousSets, settings);
     items.push({
       templateExercise,
       exercise,
+      swappedFrom: swapped ? view.exercise : null,
       previousSets,
       previousStats: previousSets ? computeSetStats(previousSets) : null,
       suggestion,

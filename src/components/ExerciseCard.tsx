@@ -11,9 +11,10 @@ interface Props {
   unit: Unit;
   sessionId: string;
   onSetLogged: (restSeconds: number) => void;
+  onRequestSwap?: () => void;
 }
 
-export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged }: Props) {
+export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged, onRequestSwap }: Props) {
   const { templateExercise: te, exercise, previousStats, suggestion } = item;
 
   const initialWeight =
@@ -27,6 +28,7 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged 
   const [isWarmup, setIsWarmup] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState("");
+  const [showPlates, setShowPlates] = useState(false);
 
   const workingCount = sets.filter((s) => !s.isWarmup).length;
 
@@ -67,8 +69,21 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged 
             {exercise.primaryMuscles.join(" / ")}
           </div>
         </div>
-        <Pill>{shortRule(te.progressionRule)}</Pill>
+        <div className="row" style={{ gap: 6 }}>
+          <Pill>{shortRule(te.progressionRule)}</Pill>
+          {onRequestSwap && (
+            <button className="btn-sm btn-ghost" style={{ padding: "4px 8px" }} title="Swap exercise" onClick={onRequestSwap}>
+              ⇄
+            </button>
+          )}
+        </div>
       </div>
+
+      {item.swappedFrom && (
+        <div className="mt">
+          <Pill tone="accent">⇄ swapped in — was {item.swappedFrom.name}</Pill>
+        </div>
+      )}
 
       {te.warmupSets > 0 && (
         <div className="faint tiny mt">
@@ -168,13 +183,21 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged 
           </button>
         </div>
         <div className="row between mt" style={{ marginTop: 8 }}>
-          <button className="btn-ghost btn-sm" onClick={() => setShowNote((v) => !v)}>
-            {showNote ? "Hide note" : "+ Note"}
-          </button>
+          <div className="row" style={{ gap: 4 }}>
+            <button className="btn-ghost btn-sm" onClick={() => setShowNote((v) => !v)}>
+              {showNote ? "Hide note" : "+ Note"}
+            </button>
+            <button className="btn-ghost btn-sm" onClick={() => setShowPlates((v) => !v)}>
+              {showPlates ? "Hide plates" : "Plates"}
+            </button>
+          </div>
           <span className="faint tiny">
             {isWarmup ? "Warmup set (no rest timer)" : `Working set ${workingCount + 1}`}
           </span>
         </div>
+        {showPlates && (
+          <div className="faint tiny mt num">{plateBreakdown(parseFloat(weight), unit)}</div>
+        )}
         {showNote && (
           <input
             className="mt"
@@ -235,6 +258,25 @@ function LoggedSetRow({ set, index }: { set: SetEntry; index: number }) {
       </button>
     </div>
   );
+}
+
+// Barbell plate math: what to load per side for the weight in the input.
+function plateBreakdown(total: number, unit: Unit): string {
+  const bar = unit === "lb" ? 45 : 20;
+  const plates = unit === "lb" ? [45, 35, 25, 10, 5, 2.5] : [25, 20, 15, 10, 5, 2.5, 1.25];
+  if (!Number.isFinite(total) || total <= 0) return `Enter a weight (bar = ${bar} ${unit})`;
+  if (total < bar) return `Below bar weight (${bar} ${unit} bar) — dumbbell/machine load`;
+  let perSide = (total - bar) / 2;
+  const out: string[] = [];
+  for (const p of plates) {
+    const n = Math.floor(perSide / p + 1e-9);
+    if (n > 0) {
+      out.push(n > 1 ? `${p}×${n}` : `${p}`);
+      perSide = Math.round((perSide - n * p) * 100) / 100;
+    }
+  }
+  const rem = perSide > 0.01 ? ` (+${perSide} unmatched)` : "";
+  return out.length ? `🏋️ Per side: ${out.join(" + ")}${rem} · bar ${bar}` : `🏋️ Empty bar (${bar} ${unit})`;
 }
 
 function shortRule(rule: string): string {

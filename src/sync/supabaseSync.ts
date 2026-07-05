@@ -41,10 +41,8 @@ const REMOTE: Record<BackupTableName, string> = {
   cardioLogs: "cardio_logs",
   bodyMetrics: "body_metrics",
   readinessLogs: "readiness_logs",
-  personalNotes: "personal_notes",
   settings: "settings",
   aiReports: "ai_reports",
-  swapGroups: "swap_groups",
   volumeTargets: "volume_targets",
   progressionRules: "progression_rules",
   weeklySchedule: "weekly_schedule",
@@ -112,8 +110,19 @@ function isSuspended(): boolean {
 }
 let hooksInstalled = false;
 let startGeneration = 0; // guards overlapping start() calls (StrictMode, re-login)
-const dirty = new Set<BackupTableName>();
+// Row-level dirty tracking: each flush uploads only the rows that changed —
+// logging one set no longer re-uploads the entire (ever-growing) history.
+const dirtyRows = new Map<BackupTableName, Set<string>>();
 let pushTimer: ReturnType<typeof setTimeout> | undefined;
+
+function markDirty(t: BackupTableName, id: string) {
+  let set = dirtyRows.get(t);
+  if (!set) {
+    set = new Set();
+    dirtyRows.set(t, set);
+  }
+  set.add(id);
+}
 
 // Remote deletes that failed (e.g. offline) — retried on the next flush.
 const pendingDeletes = new Map<BackupTableName, Set<string>>();
@@ -163,7 +172,7 @@ function installHooks() {
 function onLocalWrite(t: BackupTableName, primKey: unknown) {
   if (!enabled || isSuspended()) return;
   noteMutation(t, primKey);
-  dirty.add(t);
+  markDirty(t, String(primKey));
   scheduleFlush();
 }
 
@@ -199,16 +208,17 @@ function scheduleFlush() {
 
 async function flushDirty() {
   if (!enabled || !supabase || !currentUserId) return;
-  if (dirty.size === 0 && pendingDeletes.size === 0) return;
-  const tables = [...dirty];
-  dirty.clear();
+  if (dirtyRows.size === 0 && pendingDeletes.size === 0) return;
+  const snapshot = new Map([...dirtyRows].map(([t, ids]) => [t, new Set(ids)]));
+  dirtyRows.clear();
   setStatus({ state: "syncing" });
   try {
     await retryPendingDeletes();
-    for (const t of tables) await upsertTable(t);
+    for (const [t, ids] of snapshot) await upsertRows(t, [...ids]);
     setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
   } catch (e) {
-    tables.forEach((t) => dirty.add(t)); // retry on next change / manual sync
+    // Put everything back for the next flush / manual sync.
+    for (const [t, ids] of snapshot) ids.forEach((id) => markDirty(t, id));
     failStatus(e);
   }
 }
@@ -234,19 +244,40 @@ async function retryPendingDeletes() {
 // ---------------------------------------------------------------------------
 // Push / pull / prune primitives
 // ---------------------------------------------------------------------------
-async function upsertTable(t: BackupTableName) {
-  if (!supabase || !currentUserId) return;
-  const rows = await db.table(t).toArray();
-  if (rows.length === 0) return;
+const UPSERT_CHUNK = 500;
+
+function toPayload(t: BackupTableName, rows: unknown[]) {
   const kf = keyField(t);
-  const payload = rows.map((r) => ({
+  return rows.map((r) => ({
     user_id: currentUserId,
     id: String((r as Record<string, unknown>)[kf]),
     data: r,
     updated_at: new Date().toISOString(),
   }));
-  const { error } = await supabase.from(REMOTE[t]).upsert(payload, { onConflict: "user_id,id" });
-  if (error) throw error;
+}
+
+async function upsertPayload(t: BackupTableName, rows: unknown[]) {
+  if (!supabase || rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += UPSERT_CHUNK) {
+    const { error } = await supabase
+      .from(REMOTE[t])
+      .upsert(toPayload(t, rows.slice(i, i + UPSERT_CHUNK)), { onConflict: "user_id,id" });
+    if (error) throw error;
+  }
+}
+
+// Upsert only specific rows by id. Ids that no longer exist locally are
+// deletions — the delete path owns those, so they're skipped here.
+async function upsertRows(t: BackupTableName, ids: string[]) {
+  if (!supabase || !currentUserId || ids.length === 0) return;
+  const rows = (await db.table(t).bulkGet(ids)).filter((r) => r !== undefined);
+  await upsertPayload(t, rows);
+}
+
+async function upsertTable(t: BackupTableName) {
+  if (!supabase || !currentUserId) return;
+  const rows = await db.table(t).toArray();
+  await upsertPayload(t, rows);
 }
 
 async function pushTables(tables: readonly BackupTableName[]) {
@@ -435,7 +466,7 @@ export function stopSync(): void {
   enabled = false;
   currentUserId = null;
   startGeneration++; // invalidate any in-flight startSync
-  dirty.clear();
+  dirtyRows.clear();
   if (pushTimer) clearTimeout(pushTimer);
   setStatus({ state: "disabled", lastSyncedAt: status.lastSyncedAt });
 }

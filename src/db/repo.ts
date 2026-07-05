@@ -6,7 +6,6 @@ import type {
   BodyMetric,
   CardioLog,
   Exercise,
-  PersonalNote,
   ReadinessLog,
   SetEntry,
   TemplateExercise,
@@ -93,6 +92,21 @@ export async function startSession(templateId: string): Promise<WorkoutSession> 
   };
   await db.workoutSessions.put(session);
   return session;
+}
+
+// Swap a template slot to a different exercise for THIS session only (null
+// reverts). Sets log under the substitute, so PR history stays per-exercise.
+export async function setSessionSwap(
+  sessionId: string,
+  templateExerciseId: string,
+  exerciseId: string | null
+): Promise<void> {
+  const session = await db.workoutSessions.get(sessionId);
+  if (!session) return;
+  const swaps = { ...(session.swaps ?? {}) };
+  if (exerciseId) swaps[templateExerciseId] = exerciseId;
+  else delete swaps[templateExerciseId];
+  await db.workoutSessions.put({ ...session, swaps });
 }
 
 export async function finishSession(sessionId: string, notes?: string): Promise<void> {
@@ -215,32 +229,6 @@ export async function upsertReadiness(input: Omit<ReadinessLog, "id">): Promise<
   await db.readinessLogs.put({ ...input, id: existing?.id ?? uid("rd") });
 }
 
-export async function listNotes(): Promise<PersonalNote[]> {
-  return (await db.personalNotes.toArray()).sort((a, b) => b.date.localeCompare(a.date));
-}
-
-export async function addNote(input: Omit<PersonalNote, "id">): Promise<void> {
-  await db.personalNotes.put({ ...input, id: uid("note") });
-}
-
-export async function deleteNote(id: string): Promise<void> {
-  await db.personalNotes.delete(id);
-}
-
-// ---------------------------------------------------------------------------
-// Weekly volume (dashboard + coach context)
-// ---------------------------------------------------------------------------
-
-export async function getWeeklyVolume(reference = new Date()): Promise<MuscleVolume[]> {
-  const [sets, sessions, exercisesById, targets] = await Promise.all([
-    db.setEntries.toArray(),
-    db.workoutSessions.toArray(),
-    getExercisesById(),
-    db.volumeTargets.toArray(),
-  ]);
-  return weeklyVolumeByMuscle(sets, sessions, exercisesById, targets, reference);
-}
-
 // ---------------------------------------------------------------------------
 // Cardio logs
 // ---------------------------------------------------------------------------
@@ -263,6 +251,20 @@ export async function addCardioLog(
 
 export async function deleteCardioLog(id: string): Promise<void> {
   await db.cardioLogs.delete(id);
+}
+
+// ---------------------------------------------------------------------------
+// Weekly volume (dashboard + coach context)
+// ---------------------------------------------------------------------------
+
+export async function getWeeklyVolume(reference = new Date()): Promise<MuscleVolume[]> {
+  const [sets, sessions, exercisesById, targets] = await Promise.all([
+    db.setEntries.toArray(),
+    db.workoutSessions.toArray(),
+    getExercisesById(),
+    db.volumeTargets.toArray(),
+  ]);
+  return weeklyVolumeByMuscle(sets, sessions, exercisesById, targets, reference);
 }
 
 export { getSettings, getProgramMeta, getWeeklySchedule };

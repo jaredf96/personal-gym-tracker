@@ -165,7 +165,8 @@ export function buildCalendarMonth(
   schedule: WeeklyScheduleDay[],
   templates: WorkoutTemplate[],
   sessions: WorkoutSession[],
-  cardioLogs: CardioLog[]
+  cardioLogs: CardioLog[],
+  todayOverride?: string // injectable for deterministic tests
 ): CalendarDay[] {
   const templatesById = new Map(templates.map((t) => [t.id, t]));
   const doneByDate = completedByDate(sessions);
@@ -201,7 +202,7 @@ export function buildCalendarMonth(
   gridEnd.setDate(last.getDate() + (6 - mondayIndex(last))); // forward to Sunday
 
   // Project lifts from today forward to fill future cells.
-  const todayStr = todayISODate();
+  const todayStr = todayOverride ?? todayISODate();
   const today = new Date(todayStr + "T12:00:00");
   const horizon =
     Math.max(0, Math.round((gridEnd.getTime() - today.getTime()) / 86_400_000)) + 1;

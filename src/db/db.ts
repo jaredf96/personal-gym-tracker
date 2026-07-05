@@ -8,10 +8,8 @@ import type {
   CardioLog,
   BodyMetric,
   ReadinessLog,
-  PersonalNote,
   Settings,
   AiReport,
-  SwapGroup,
   VolumeTarget,
   ProgressionRuleInfo,
   WeeklyScheduleDay,
@@ -28,10 +26,8 @@ export class GymDB extends Dexie {
   cardioLogs!: Table<CardioLog, string>;
   bodyMetrics!: Table<BodyMetric, string>;
   readinessLogs!: Table<ReadinessLog, string>;
-  personalNotes!: Table<PersonalNote, string>;
   settings!: Table<Settings, string>;
   aiReports!: Table<AiReport, string>;
-  swapGroups!: Table<SwapGroup, string>;
   volumeTargets!: Table<VolumeTarget, string>;
   progressionRules!: Table<ProgressionRuleInfo, string>;
   weeklySchedule!: Table<WeeklyScheduleDay, string>;
@@ -74,6 +70,13 @@ export class GymDB extends Dexie {
       weeklySchedule: "id, dayIndex, templateId",
       programMeta: "id",
     });
+
+    // v3: drop zombie tables. swapGroups (v1 concept) was superseded by
+    // per-session swaps stored on workoutSessions; personalNotes never had UI.
+    this.version(3).stores({
+      swapGroups: null,
+      personalNotes: null,
+    });
   }
 }
 
@@ -90,10 +93,8 @@ export const BACKUP_TABLES = [
   "cardioLogs",
   "bodyMetrics",
   "readinessLogs",
-  "personalNotes",
   "settings",
   "aiReports",
-  "swapGroups",
   "volumeTargets",
   "progressionRules",
   "weeklySchedule",
@@ -108,7 +109,6 @@ export const REFERENCE_TABLES: BackupTableName[] = [
   "exercises",
   "workoutTemplates",
   "templateExercises",
-  "swapGroups",
   "volumeTargets",
   "progressionRules",
   "weeklySchedule",

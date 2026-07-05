@@ -52,7 +52,6 @@ export async function generateCoachSummary(sessionId: string): Promise<CoachResu
     sessionId,
     createdAt: new Date().toISOString(),
     provider: report.provider,
-    context, // snapshot of exactly what the provider was given
     headline: report.headline,
     summary: report.summary,
     bullets: report.bullets,
