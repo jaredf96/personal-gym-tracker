@@ -8,7 +8,7 @@ import ScreenSkeleton from "../components/Skeleton";
 import { describeDate } from "../engine/schedule";
 import { generateCoachSummary, getLatestReportForSession } from "../ai/coachService";
 import { fmtNum, fmtWeight, signed, plural } from "../lib/format";
-import { relativeDay, todayISODate } from "../lib/dates";
+import { relativeDay, addDaysISO } from "../lib/dates";
 import { ScreenHeader, Pill, TrendPill, Empty } from "../components/ui";
 
 export default function SummaryScreen() {
@@ -26,7 +26,7 @@ export default function SummaryScreen() {
       listTemplates(),
       db.workoutSessions.toArray(),
     ]);
-    const tomorrowDate = todayISODate(new Date(Date.now() + 86_400_000));
+    const tomorrowDate = addDaysISO(1);
     const tomorrow = describeDate(tomorrowDate, schedule, templates, sessions);
 
     // PRs set in THIS session (weight / volume / est-1RM), for the celebration.

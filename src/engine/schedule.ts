@@ -154,7 +154,8 @@ export interface CalendarDay {
   status: DayStatus;
   template: WorkoutTemplate | null;
   color: string | null;
-  sessionId: string | null;
+  sessionId: string | null; // latest completed session (back-compat)
+  sessionIds: string[]; // ALL completed sessions that day (multi-session days)
   cardioMinutes: number | null;
 }
 
@@ -168,6 +169,17 @@ export function buildCalendarMonth(
 ): CalendarDay[] {
   const templatesById = new Map(templates.map((t) => [t.id, t]));
   const doneByDate = completedByDate(sessions);
+  // ALL completed sessions per date (chronological) — a made-up day can hold two.
+  const allDoneByDate = new Map<string, WorkoutSession[]>();
+  for (const s of sessions) {
+    if (!s.endedAt) continue;
+    const list = allDoneByDate.get(s.date) ?? [];
+    list.push(s);
+    allDoneByDate.set(s.date, list);
+  }
+  for (const list of allDoneByDate.values()) {
+    list.sort((a, b) => (a.endedAt ?? "").localeCompare(b.endedAt ?? ""));
+  }
   const cardioByDate = new Map<string, number>();
   for (const c of cardioLogs) {
     cardioByDate.set(c.date, (cardioByDate.get(c.date) ?? 0) + c.minutes);
@@ -222,7 +234,14 @@ export function buildCalendarMonth(
         template = projected.get(iso) ?? null;
       }
     } else if (type === "cardio" || type === "cardio_or_rest") {
-      status = isPast ? "rest" : "cardio";
+      if (isPast) {
+        // Mandatory cardio ("cardio") skipped after training started = missed;
+        // optional ("cardio_or_rest") resolves to rest.
+        status =
+          type === "cardio" && firstActivity && iso >= firstActivity ? "missed" : "rest";
+      } else {
+        status = "cardio";
+      }
     } else {
       status = "rest";
     }
@@ -239,6 +258,7 @@ export function buildCalendarMonth(
       template,
       color: template?.color ?? null,
       sessionId: completed?.id ?? null,
+      sessionIds: (allDoneByDate.get(iso) ?? []).map((s) => s.id),
       cardioMinutes: cardioMin,
     });
   }

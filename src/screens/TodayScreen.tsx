@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
 import { db } from "../db/db";
@@ -13,7 +13,7 @@ import {
 import { analyzeSession } from "../engine/analysis";
 import { describeDate, type DayDescriptor } from "../engine/schedule";
 import { getDeloadAssessment } from "../engine/deload";
-import { todayISODate, relativeDay } from "../lib/dates";
+import { todayISODate, relativeDay , addDaysISO } from "../lib/dates";
 import { fmtNum } from "../lib/format";
 import { ScreenHeader, Pill } from "../components/ui";
 import ReadinessCard from "../components/ReadinessCard";
@@ -26,8 +26,23 @@ function heroStyle(color?: string): CSSProperties {
   return color ? ({ "--hero": color } as CSSProperties) : {};
 }
 
+// Re-render when the local date changes so a PWA left open overnight rolls
+// over to the new day (plan, calendar highlight, readiness date).
+export function useDateKey(): string {
+  const [dateKey, setDateKey] = useState(todayISODate());
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const d = todayISODate();
+      setDateKey((prev) => (prev === d ? prev : d));
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return dateKey;
+}
+
 export default function TodayScreen() {
   const navigate = useNavigate();
+  const dateKey = useDateKey();
 
   const data = useLiveQuery(async () => {
     const [templates, schedule, sessions, active, settings, nextInfo] = await Promise.all([
@@ -38,7 +53,7 @@ export default function TodayScreen() {
       getSettings(),
       getNextTemplate(),
     ]);
-    const tomorrowDate = todayISODate(new Date(Date.now() + 86_400_000));
+    const tomorrowDate = addDaysISO(1);
     const today = describeDate(todayISODate(), schedule, templates, sessions);
     const tomorrow = describeDate(tomorrowDate, schedule, templates, sessions);
     const lastSummary = nextInfo.lastCompleted
@@ -46,7 +61,7 @@ export default function TodayScreen() {
       : null;
     const deload = await getDeloadAssessment();
     return { templates, today, tomorrow, nextLift: nextInfo.template, active, settings, lastSummary, deload };
-  }, []);
+  }, [dateKey]);
 
   if (!data) return <ScreenSkeleton />;
   const { templates, today, tomorrow, nextLift, active, settings, lastSummary, deload } = data;

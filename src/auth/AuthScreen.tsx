@@ -3,7 +3,7 @@ import { useAuth } from "./AuthProvider";
 
 // Login / signup screen shown when Supabase is configured and no session exists.
 export default function AuthScreen() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,6 +81,27 @@ export default function AuthScreen() {
           <button className="btn-primary btn-block btn-lg mt-lg" disabled={busy} type="submit">
             {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Sign up"}
           </button>
+
+          {mode === "login" && (
+            <button
+              type="button"
+              className="btn-ghost btn-block btn-sm mt"
+              disabled={busy}
+              onClick={async () => {
+                setError(null);
+                setInfo(null);
+                if (!email.trim()) {
+                  setError("Enter your email above first, then tap Forgot password.");
+                  return;
+                }
+                const res = await resetPassword(email.trim());
+                if (res.error) setError(res.error);
+                else setInfo("Password reset link sent — check your email.");
+              }}
+            >
+              Forgot password?
+            </button>
+          )}
         </form>
 
         <button

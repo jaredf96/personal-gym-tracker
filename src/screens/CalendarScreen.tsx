@@ -2,17 +2,23 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
-import { listTemplates, listCardioLogs, getWeeklySchedule } from "../db/repo";
+import { listTemplates, listCardioLogs, getWeeklySchedule, startSession } from "../db/repo";
 import { buildCalendarMonth, type CalendarDay, type DayStatus } from "../engine/schedule";
 import { ScreenHeader } from "../components/ui";
+import { useToast } from "../components/Toast";
+import { useDateKey } from "./TodayScreen";
+import type { WorkoutSession, WorkoutTemplate } from "../types";
 
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function CalendarScreen() {
   const navigate = useNavigate();
+  const toast = useToast();
+  const dateKey = useDateKey();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-11
+  const [picker, setPicker] = useState<{ date: string; sessionIds: string[] } | null>(null);
 
   const data = useLiveQuery(async () => {
     const [schedule, templates, sessions, cardio] = await Promise.all([
@@ -21,8 +27,12 @@ export default function CalendarScreen() {
       db.workoutSessions.toArray(),
       listCardioLogs(),
     ]);
-    return buildCalendarMonth(year, month, schedule, templates, sessions, cardio);
-  }, [year, month]);
+    return {
+      days: buildCalendarMonth(year, month, schedule, templates, sessions, cardio),
+      sessions,
+      templates,
+    };
+  }, [year, month, dateKey]);
 
   function shift(delta: number) {
     const d = new Date(year, month + delta, 1);
@@ -35,8 +45,25 @@ export default function CalendarScreen() {
     year: "numeric",
   });
 
-  function onCellClick(day: CalendarDay) {
-    if (day.sessionId) navigate(`/summary/${day.sessionId}`);
+  async function onCellClick(day: CalendarDay) {
+    if (day.sessionIds.length > 1) {
+      setPicker({ date: day.date, sessionIds: day.sessionIds });
+      return;
+    }
+    if (day.sessionIds.length === 1) {
+      navigate(`/summary/${day.sessionIds[0]}`);
+      return;
+    }
+    if (day.status === "planned" && day.template) {
+      if (day.isToday) {
+        if (window.confirm(`Start ${day.template.name} now?`)) {
+          const s = await startSession(day.template.id);
+          navigate(`/workout/${s.id}`);
+        }
+      } else {
+        toast.show(`${day.template.name} planned — start it from Today when you're ready`);
+      }
+    }
   }
 
   return (
@@ -63,11 +90,15 @@ export default function CalendarScreen() {
         </div>
 
         {!data ? (
-          <div className="cal-grid">{Array.from({ length: 35 }, (_, i) => (<div key={i} className="skel" style={{ aspectRatio: "1 / 1", borderRadius: 10 }} />))}</div>
+          <div className="cal-grid">
+            {Array.from({ length: 35 }, (_, i) => (
+              <div key={i} className="skel" style={{ aspectRatio: "1 / 1", borderRadius: 10 }} />
+            ))}
+          </div>
         ) : (
           <div className="cal-grid">
-            {data.map((day) => (
-              <Cell key={day.date} day={day} onClick={() => onCellClick(day)} />
+            {data.days.map((day) => (
+              <Cell key={day.date} day={day} onClick={() => void onCellClick(day)} />
             ))}
           </div>
         )}
@@ -93,13 +124,79 @@ export default function CalendarScreen() {
             <span className="cal-dot" style={{ background: "var(--surface-3)" }} /> Rest
           </span>
         </div>
-        <div className="faint tiny mt">Tap a completed day to see that session.</div>
+        <div className="faint tiny mt">
+          Tap a completed day for its session · tap today's planned lift to start it.
+        </div>
       </div>
 
       <Link to="/exercises" className="btn btn-block">
         Exercise history & PRs →
       </Link>
+
+      {picker && data && (
+        <SessionPicker
+          date={picker.date}
+          sessionIds={picker.sessionIds}
+          sessions={data.sessions}
+          templates={data.templates}
+          onPick={(id) => {
+            setPicker(null);
+            navigate(`/summary/${id}`);
+          }}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// Bottom sheet for days with more than one completed session.
+function SessionPicker({
+  date,
+  sessionIds,
+  sessions,
+  templates,
+  onPick,
+  onClose,
+}: {
+  date: string;
+  sessionIds: string[];
+  sessions: WorkoutSession[];
+  templates: WorkoutTemplate[];
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  const byId = new Map(sessions.map((s) => [s.id, s]));
+  const tById = new Map(templates.map((t) => [t.id, t]));
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet">
+        <h3 className="mb">{date} — two sessions</h3>
+        <div className="col">
+          {sessionIds.map((id) => {
+            const s = byId.get(id);
+            const t = s ? tById.get(s.templateId) : undefined;
+            const time = s?.endedAt
+              ? new Date(s.endedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+              : "";
+            return (
+              <button
+                key={id}
+                className="btn-block"
+                style={t ? { borderColor: t.color, color: t.color } : undefined}
+                onClick={() => onPick(id)}
+              >
+                {t?.name ?? "Workout"} · {time}
+              </button>
+            );
+          })}
+        </div>
+        <button className="btn-ghost btn-block mt" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -118,14 +215,20 @@ function Cell({ day, onClick }: { day: CalendarDay; onClick: () => void }) {
     borderColor = "var(--green)";
   }
 
+  const clickable =
+    day.sessionIds.length > 0 || (day.status === "planned" && !!day.template);
   const tag = statusTag(day);
 
   return (
     <div
       className={`cal-cell${day.inMonth ? "" : " out"}${day.isToday ? " today" : ""}${
         filled ? " filled" : ""
-      }${day.sessionId ? " clickable" : ""}`}
-      style={{ background: bg, borderColor }}
+      }${clickable ? " clickable" : ""}`}
+      style={{
+        background: bg,
+        borderColor,
+        borderStyle: day.status === "planned" ? "dashed" : "solid",
+      }}
       onClick={onClick}
       title={`${day.scheduleLabel} · ${day.status}`}
     >
@@ -133,6 +236,11 @@ function Cell({ day, onClick }: { day: CalendarDay; onClick: () => void }) {
       {tag && (
         <span className="cal-tag" style={{ color: tagColor(day.status, color) }}>
           {tag}
+        </span>
+      )}
+      {day.sessionIds.length > 1 && (
+        <span className="cal-tag" style={{ color: "var(--text-faint)" }}>
+          ×{day.sessionIds.length}
         </span>
       )}
     </div>

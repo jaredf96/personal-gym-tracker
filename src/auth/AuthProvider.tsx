@@ -22,15 +22,20 @@ interface AuthContextValue {
   loading: boolean;
   session: Session | null;
   user: User | null;
+  /** True when the user arrived via a password-recovery email link. */
+  passwordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<AuthResult>;
+  updatePassword: (password: string) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   // In local-only mode there is nothing to load.
   const [loading, setLoading] = useState<boolean>(isSupabaseConfigured);
 
@@ -44,9 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setLoading(false);
+      // Arrived via a reset-password email link — route to the new-password form.
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
     });
 
     return () => {
@@ -75,17 +82,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
+  const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
+    if (!supabase) return { error: "Cloud sync is not configured." };
+    // The email link returns here; PASSWORD_RECOVERY then shows the new-password form.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    return { error: error?.message ?? null };
+  }, []);
+
+  const updatePassword = useCallback(async (password: string): Promise<AuthResult> => {
+    if (!supabase) return { error: "Cloud sync is not configured." };
+    const { error } = await supabase.auth.updateUser({ password });
+    if (!error) setPasswordRecovery(false);
+    return { error: error?.message ?? null };
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       configured: isSupabaseConfigured,
       loading,
       session,
       user: session?.user ?? null,
+      passwordRecovery,
       signIn,
       signUp,
       signOut,
+      resetPassword,
+      updatePassword,
     }),
-    [loading, session, signIn, signUp, signOut]
+    [loading, session, passwordRecovery, signIn, signUp, signOut, resetPassword, updatePassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

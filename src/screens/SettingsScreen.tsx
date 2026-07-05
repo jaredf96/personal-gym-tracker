@@ -46,8 +46,12 @@ const SYNC_TONE: Record<SyncState, "green" | "amber" | "red" | "default"> = {
 export default function SettingsScreen() {
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
-  const { configured, user, signOut } = useAuth();
+  const { configured, user, signOut, updatePassword } = useAuth();
   const sync = useSyncStatus();
+
+  // Change-password draft
+  const [pwOpen, setPwOpen] = useState(false);
+  const [newPw, setNewPw] = useState("");
 
   const data = useLiveQuery(async () => {
     const [settings, metrics] = await Promise.all([getSettings(), listBodyMetrics()]);
@@ -193,6 +197,34 @@ export default function SettingsScreen() {
               Log out
             </button>
           </div>
+          <button className="btn-ghost btn-block btn-sm mt" onClick={() => setPwOpen((o) => !o)}>
+            {pwOpen ? "Hide change password" : "Change password"}
+          </button>
+          {pwOpen && (
+            <div className="row mt" style={{ gap: 8 }}>
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder="New password (min 6 chars)"
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+              />
+              <button
+                className="btn-primary"
+                disabled={newPw.length < 6}
+                onClick={async () => {
+                  const res = await updatePassword(newPw);
+                  toast.show(res.error ? `Failed: ${res.error}` : "Password updated");
+                  if (!res.error) {
+                    setNewPw("");
+                    setPwOpen(false);
+                  }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          )}
           <div className="faint tiny mt">
             Your data is stored per-account in Supabase (row-level security). This device keeps a
             local synced copy that works offline.

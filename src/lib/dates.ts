@@ -11,6 +11,13 @@ export function nowISO(): string {
   return new Date().toISOString();
 }
 
+// Calendar-safe day offset (DST-proof — never add raw 24h milliseconds).
+export function addDaysISO(days: number, from = new Date()): string {
+  const d = new Date(from);
+  d.setDate(d.getDate() + days);
+  return todayISODate(d);
+}
+
 // Monday-based start of the week for the given date (local time).
 export function startOfWeek(d = new Date()): Date {
   const x = new Date(d);

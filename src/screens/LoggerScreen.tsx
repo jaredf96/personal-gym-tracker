@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate, useParams } from "react-router-dom";
 import { db } from "../db/db";
@@ -6,8 +6,10 @@ import {
   deleteSession,
   finishSession,
   getActiveSession,
+  getNextTemplate,
   getSetsForSession,
   getSettings,
+  startSession,
 } from "../db/repo";
 import { getUpcomingPlan } from "../engine/analysis";
 import type { SetEntry } from "../types";
@@ -27,7 +29,9 @@ export default function LoggerScreen() {
   const data = useLiveQuery(async () => {
     let session = sessionId ? await db.workoutSessions.get(sessionId) : undefined;
     if (!session) session = (await getActiveSession()) ?? undefined;
-    if (!session) return { session: null };
+    // No active workout: don't dead-end — surface the next lift so the Log tab
+    // is always one tap from training.
+    if (!session) return { session: null, next: (await getNextTemplate()).template };
 
     const template = await db.workoutTemplates.get(session.templateId);
     const [plan, sets, settings] = await Promise.all([
@@ -41,17 +45,31 @@ export default function LoggerScreen() {
   if (!data) return <ScreenSkeleton />;
 
   if (!data.session || !data.plan) {
+    const next = "next" in data ? data.next : null;
     return (
       <div className="screen">
-        <ScreenHeader title="Workout" />
-        <Empty>
-          No active workout.
-          <div className="mt">
-            <button className="btn-primary" onClick={() => navigate("/")}>
-              Go to Today →
+        <ScreenHeader title="Workout" subtitle="No session in progress" />
+        {next ? (
+          <div className="card hero" style={{ "--hero": next.color } as CSSProperties}>
+            <div className="muted small">Next in your rotation</div>
+            <h2 style={{ color: next.color }}>{next.name}</h2>
+            <button
+              className="btn-primary btn-block btn-lg mt"
+              style={{ background: next.color, borderColor: next.color }}
+              onClick={async () => {
+                const s = await startSession(next.id);
+                navigate(`/workout/${s.id}`);
+              }}
+            >
+              Start {next.name} →
             </button>
           </div>
-        </Empty>
+        ) : (
+          <Empty>No program loaded yet.</Empty>
+        )}
+        <button className="btn-ghost btn-block mt" onClick={() => navigate("/")}>
+          Go to Today →
+        </button>
       </div>
     );
   }
