@@ -102,5 +102,21 @@ export const BACKUP_TABLES = [
 
 export type BackupTableName = (typeof BACKUP_TABLES)[number];
 
-// Tables wiped on a program version change (everything except user preferences).
-export const PROGRAM_DATA_TABLES = BACKUP_TABLES.filter((t) => t !== "settings");
+// Program REFERENCE data: owned by the seeded program. Wiped + reseeded on a
+// program version bump. Never contains user history.
+export const REFERENCE_TABLES: BackupTableName[] = [
+  "exercises",
+  "workoutTemplates",
+  "templateExercises",
+  "swapGroups",
+  "volumeTargets",
+  "progressionRules",
+  "weeklySchedule",
+  "programMeta",
+];
+
+// User LOG data: history, metrics, notes, preferences. NEVER wiped by a program
+// upgrade — old sessions may reference retired exercises, which the UI tolerates.
+export const LOG_TABLES: BackupTableName[] = BACKUP_TABLES.filter(
+  (t) => !REFERENCE_TABLES.includes(t)
+);

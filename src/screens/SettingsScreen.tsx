@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
-import { ensureSeeded } from "../db/seedRunner";
+import { reseedProgramData, SEED_VERSION_KEY } from "../db/seedRunner";
 import {
   addBodyMetric,
   deleteBodyMetric,
@@ -17,7 +17,15 @@ import { ScreenHeader, Pill } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { useAuth } from "../auth/AuthProvider";
 import { useSyncStatus } from "../sync/useSyncStatus";
-import { syncNow, type SyncState } from "../sync/supabaseSync";
+import {
+  syncNow,
+  withSyncPaused,
+  reconcileAfterImport,
+  reconcileAfterReseed,
+  eraseEverything,
+  getSyncStatus,
+  type SyncState,
+} from "../sync/supabaseSync";
 
 const SYNC_LABEL: Record<SyncState, string> = {
   disabled: "Local only",
@@ -79,8 +87,15 @@ export default function SettingsScreen() {
       const replace = window.confirm(
         "Replace ALL current data with this backup?\n\nOK = replace, Cancel = merge into existing data."
       );
-      const res = await importBackup(json, replace);
-      toast.show(res.message);
+      // Paused: no per-row sync traffic during the bulk rewrite; one bounded
+      // reconcile afterwards keeps the cloud consistent with the import.
+      const res = await withSyncPaused(() => importBackup(json, replace));
+      if (res.ok) {
+        const synced = await reconcileAfterImport(replace);
+        toast.show(synced ? res.message : `${res.message} (cloud sync failed — use Sync now)`);
+      } else {
+        toast.show(res.message);
+      }
     } catch (err) {
       toast.show(`Import failed: ${(err as Error).message}`);
     }
@@ -88,14 +103,37 @@ export default function SettingsScreen() {
   }
 
   async function restoreSeed() {
-    if (!window.confirm("Reload workbook seed data (library, templates, targets)? Your logs are kept."))
+    if (!window.confirm("Reload program data (exercises, templates, targets)? Your logs are kept."))
       return;
-    await ensureSeeded();
-    toast.show("Seed data refreshed");
+    try {
+      // Paused so the reference-table clear doesn't fire per-row remote
+      // deletes; one bounded reference-only reconcile afterwards.
+      await withSyncPaused(() => reseedProgramData());
+      const synced = await reconcileAfterReseed();
+      toast.show(synced ? "Program data refreshed" : "Refreshed locally (cloud sync failed — use Sync now)");
+    } catch (err) {
+      toast.show(`Refresh failed: ${(err as Error).message}`);
+    }
   }
 
   async function eraseAll() {
-    if (!window.confirm("Erase ALL local data permanently? This cannot be undone.")) return;
+    const msg = configured
+      ? "Erase ALL data permanently — on this device AND in your cloud account? This cannot be undone."
+      : "Erase ALL local data permanently? This cannot be undone.";
+    if (!window.confirm(msg)) return;
+    try {
+      await eraseEverything(); // clears cloud rows when signed in, stops sync
+    } catch (err) {
+      const ok = window.confirm(
+        `Couldn't clear the cloud copy (${(err as Error).message}).\n\nErase local data anyway? The cloud copy will come back on next sign-in.`
+      );
+      if (!ok) {
+        // eraseEverything already stopped sync — reload to restore it cleanly.
+        window.location.reload();
+        return;
+      }
+    }
+    localStorage.removeItem(SEED_VERSION_KEY);
     await db.delete();
     toast.show("All data erased — reloading");
     setTimeout(() => window.location.reload(), 600);
@@ -132,8 +170,10 @@ export default function SettingsScreen() {
             <button
               className="grow"
               onClick={async () => {
-                await syncNow();
-                toast.show("Sync complete");
+                const ok = await syncNow();
+                toast.show(
+                  ok ? "Sync complete" : `Sync failed: ${getSyncStatus().message ?? "unknown error"}`
+                );
               }}
               disabled={sync.state === "syncing"}
             >
@@ -289,7 +329,7 @@ export default function SettingsScreen() {
       <div className="card" style={{ borderColor: "var(--border)" }}>
         <h3 className="mb">Data</h3>
         <button className="btn-block mb" onClick={restoreSeed}>
-          Refresh workbook seed data
+          Refresh program data
         </button>
         <button className="btn-danger btn-block" onClick={eraseAll}>
           Erase all data

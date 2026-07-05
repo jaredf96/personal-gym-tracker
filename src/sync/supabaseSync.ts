@@ -1,23 +1,32 @@
-import { db, BACKUP_TABLES, type BackupTableName } from "../db/db";
-import { ensureSeeded, didUpgradeProgram } from "../db/seedRunner";
+import { db, BACKUP_TABLES, REFERENCE_TABLES, LOG_TABLES, type BackupTableName } from "../db/db";
+import { ensureSeeded, reseedProgramData, SEED_VERSION } from "../db/seedRunner";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import type { ProgramMeta } from "../types";
 
 // ===========================================================================
 // Per-user cloud sync.
 //
-// Model: Dexie stays the local working store (the engine/repo/screens are
-// untouched). Once signed in, Supabase is the per-user source of truth and Dexie
-// is a synced cache. Each Dexie table maps to a thin Supabase table shaped
-// (user_id, id, data jsonb, updated_at) protected by RLS (user_id = auth.uid()).
+// Model: Dexie is the local working store (engine/repo/screens untouched).
+// Once signed in, Supabase holds the per-user copy, one thin table per entity:
+// (user_id, id, data jsonb, updated_at), RLS user_id = auth.uid().
 //
-// Writes are captured with Dexie table hooks (no repo changes needed):
-//   - create/update  -> debounced upsert of the changed table
-//   - delete         -> immediate remote delete by id
-// Reconciliation on login uses a local "owner" marker so pre-auth data is
-// preserved (adopted) and one user never sees another user's local cache.
+// Safety rules this module enforces (each fixes a reviewed defect):
+//  1. The cloud is NEVER reset based on a local guess. Program migrations are
+//     decided by comparing the CLOUD program version to SEED_VERSION — a fresh
+//     device with empty localStorage adopts cloud history instead of wiping it.
+//  2. Program upgrades replace REFERENCE tables only; LOG tables (history,
+//     metrics, settings) are pushed up before any pull, so they survive on
+//     both sides.
+//  3. startSync awaits ensureSeeded() — no race against the seeding pass.
+//  4. Pulls are diff-applies in one local transaction, and rows the user wrote
+//     while a pull was in flight are skipped (kept + re-pushed) instead of
+//     silently destroyed.
+//  5. Failed remote deletes are queued and retried on the next flush.
+//  6. Bulk local rewrites (backup import) run inside withSyncPaused() and then
+//     one bounded reconcile — never a per-row network storm.
 //
-// Known MVP limit: conflict resolution is last-write-wins (single-device
-// oriented). Offline deletes may not propagate; a manual "Sync now" re-uploads.
+// Known, accepted tradeoff: conflict resolution is last-write-wins snapshots,
+// single-user oriented.
 // ===========================================================================
 
 const OWNER_KEY = "gym-tracker.localOwner";
@@ -42,8 +51,7 @@ const REMOTE: Record<BackupTableName, string> = {
   programMeta: "program_meta",
 };
 
-// Primary-key field per Dexie table (defaults to "id"). The remote `id` column
-// always stores the string form of this key.
+// Primary-key field per Dexie table (defaults to "id").
 const KEY_FIELD: Partial<Record<BackupTableName, string>> = {
   volumeTargets: "muscle",
   progressionRules: "rule",
@@ -51,6 +59,8 @@ const KEY_FIELD: Partial<Record<BackupTableName, string>> = {
 function keyField(t: BackupTableName): string {
   return KEY_FIELD[t] ?? "id";
 }
+
+const DELETE_CHUNK = 200;
 
 // ---------------------------------------------------------------------------
 // Status (observable for the Settings UI)
@@ -84,16 +94,51 @@ function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+function failStatus(e: unknown) {
+  setStatus({ state: navigator.onLine ? "error" : "offline", message: errMessage(e) });
+}
+
 // ---------------------------------------------------------------------------
 // Internal state
 // ---------------------------------------------------------------------------
 let currentUserId: string | null = null;
 let enabled = false; // true only while a user is signed in
-let suspended = false; // true while we write cloud->local (prevents echo)
+
+// Suspension is a COUNTER, not a boolean: a pull, an import, and a clear can
+// overlap, and the first one to finish must not un-suspend the others.
+let suspendCount = 0;
+function isSuspended(): boolean {
+  return suspendCount > 0;
+}
 let hooksInstalled = false;
-let startGeneration = 0; // guards against overlapping start() calls (StrictMode)
+let startGeneration = 0; // guards overlapping start() calls (StrictMode, re-login)
 const dirty = new Set<BackupTableName>();
 let pushTimer: ReturnType<typeof setTimeout> | undefined;
+
+// Remote deletes that failed (e.g. offline) — retried on the next flush.
+const pendingDeletes = new Map<BackupTableName, Set<string>>();
+
+// Rows the user mutated recently, so an in-flight pull never clobbers or
+// deletes them (they stay local + dirty and win via the next push).
+const RECENT_TTL_MS = 10 * 60_000;
+const recentMutations = new Map<BackupTableName, Map<string, number>>();
+
+function noteMutation(t: BackupTableName, id: unknown) {
+  let m = recentMutations.get(t);
+  if (!m) {
+    m = new Map();
+    recentMutations.set(t, m);
+  }
+  m.set(String(id), Date.now());
+}
+
+function pruneRecentMutations() {
+  const cutoff = Date.now() - RECENT_TTL_MS;
+  for (const [t, m] of recentMutations) {
+    for (const [id, ts] of m) if (ts < cutoff) m.delete(id);
+    if (m.size === 0) recentMutations.delete(t);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Dexie change capture
@@ -102,11 +147,11 @@ function installHooks() {
   if (hooksInstalled) return;
   for (const t of BACKUP_TABLES) {
     const table = db.table(t);
-    table.hook("creating", () => {
-      onLocalWrite(t);
+    table.hook("creating", (primKey) => {
+      onLocalWrite(t, primKey);
     });
-    table.hook("updating", () => {
-      onLocalWrite(t);
+    table.hook("updating", (_mods, primKey) => {
+      onLocalWrite(t, primKey);
     });
     table.hook("deleting", (primKey) => {
       onLocalDelete(t, primKey);
@@ -115,21 +160,35 @@ function installHooks() {
   hooksInstalled = true;
 }
 
-function onLocalWrite(t: BackupTableName) {
-  if (!enabled || suspended) return;
+function onLocalWrite(t: BackupTableName, primKey: unknown) {
+  if (!enabled || isSuspended()) return;
+  noteMutation(t, primKey);
   dirty.add(t);
   scheduleFlush();
 }
 
 function onLocalDelete(t: BackupTableName, primKey: unknown) {
-  if (!enabled || suspended || !supabase || !currentUserId) return;
+  if (!enabled || isSuspended() || !supabase || !currentUserId) return;
+  noteMutation(t, primKey);
+  const id = String(primKey);
   void supabase
     .from(REMOTE[t])
     .delete()
     .eq("user_id", currentUserId)
-    .eq("id", String(primKey))
+    .eq("id", id)
     .then(({ error }) => {
-      if (error) setStatus({ state: "error", message: errMessage(error) });
+      if (error) {
+        // Queue for retry instead of losing the delete (it would otherwise be
+        // resurrected by the next pull).
+        let set = pendingDeletes.get(t);
+        if (!set) {
+          set = new Set();
+          pendingDeletes.set(t, set);
+        }
+        set.add(id);
+        failStatus(error);
+        scheduleFlush();
+      }
     });
 }
 
@@ -139,21 +198,41 @@ function scheduleFlush() {
 }
 
 async function flushDirty() {
-  if (!enabled || !supabase || !currentUserId || dirty.size === 0) return;
+  if (!enabled || !supabase || !currentUserId) return;
+  if (dirty.size === 0 && pendingDeletes.size === 0) return;
   const tables = [...dirty];
   dirty.clear();
   setStatus({ state: "syncing" });
   try {
+    await retryPendingDeletes();
     for (const t of tables) await upsertTable(t);
     setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
   } catch (e) {
     tables.forEach((t) => dirty.add(t)); // retry on next change / manual sync
-    setStatus({ state: navigator.onLine ? "error" : "offline", message: errMessage(e) });
+    failStatus(e);
+  }
+}
+
+async function retryPendingDeletes() {
+  if (!supabase || !currentUserId) return;
+  for (const [t, ids] of [...pendingDeletes]) {
+    const list = [...ids];
+    for (let i = 0; i < list.length; i += DELETE_CHUNK) {
+      const chunk = list.slice(i, i + DELETE_CHUNK);
+      const { error } = await supabase
+        .from(REMOTE[t])
+        .delete()
+        .eq("user_id", currentUserId)
+        .in("id", chunk);
+      if (error) throw error;
+      chunk.forEach((id) => ids.delete(id));
+    }
+    if (ids.size === 0) pendingDeletes.delete(t);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Push / pull primitives
+// Push / pull / prune primitives
 // ---------------------------------------------------------------------------
 async function upsertTable(t: BackupTableName) {
   if (!supabase || !currentUserId) return;
@@ -170,51 +249,101 @@ async function upsertTable(t: BackupTableName) {
   if (error) throw error;
 }
 
-export async function pushSnapshot() {
-  for (const t of BACKUP_TABLES) await upsertTable(t);
+async function pushTables(tables: readonly BackupTableName[]) {
+  for (const t of tables) await upsertTable(t);
 }
 
-async function pullSnapshot() {
+// Diff-apply pull: fetch cloud rows over the network first (sync hooks stay
+// live so user writes keep getting tracked), then apply everything in ONE
+// local transaction with hooks suspended. Rows the user touched after the
+// fetch started are left alone — they stay dirty and win via the next push.
+async function pullTables(tables: readonly BackupTableName[]) {
   if (!supabase || !currentUserId) return;
-  suspended = true;
+  pruneRecentMutations();
+  const pullStart = Date.now();
+
+  const fetched = new Map<BackupTableName, unknown[]>();
+  for (const t of tables) {
+    const { data, error } = await supabase
+      .from(REMOTE[t])
+      .select("data")
+      .eq("user_id", currentUserId);
+    if (error) throw error;
+    fetched.set(t, (data ?? []).map((r) => (r as { data: unknown }).data));
+  }
+
+  const touchedSincePull = (t: BackupTableName, id: string): boolean => {
+    const ts = recentMutations.get(t)?.get(id);
+    return ts !== undefined && ts >= pullStart;
+  };
+
+  suspendCount++;
   try {
-    for (const t of BACKUP_TABLES) {
-      const { data, error } = await supabase
-        .from(REMOTE[t])
-        .select("data")
-        .eq("user_id", currentUserId);
-      if (error) throw error;
-      const rows = (data ?? []).map((r) => (r as { data: unknown }).data);
-      await db.table(t).clear();
-      if (rows.length) await db.table(t).bulkPut(rows as never[]);
-    }
+    await db.transaction("rw", tables.map((t) => db.table(t)), async () => {
+      for (const t of tables) {
+        const kf = keyField(t);
+        const cloudRows = fetched.get(t) ?? [];
+        const cloudIds = new Set(
+          cloudRows.map((r) => String((r as Record<string, unknown>)[kf]))
+        );
+        const table = db.table(t);
+        const localIds = (await table.toCollection().primaryKeys()).map(String);
+
+        const toDelete = localIds.filter(
+          (id) => !cloudIds.has(id) && !touchedSincePull(t, id)
+        );
+        const toPut = cloudRows.filter(
+          (r) => !touchedSincePull(t, String((r as Record<string, unknown>)[kf]))
+        );
+
+        if (toDelete.length) await table.bulkDelete(toDelete);
+        if (toPut.length) await table.bulkPut(toPut as never[]);
+      }
+    });
   } finally {
-    suspended = false;
+    suspendCount--;
+  }
+}
+
+// Delete cloud rows (for the current user) whose ids no longer exist locally.
+async function pruneCloudTables(tables: readonly BackupTableName[]) {
+  if (!supabase || !currentUserId) return;
+  for (const t of tables) {
+    const kf = keyField(t);
+    const localIds = new Set(
+      (await db.table(t).toArray()).map((r) => String((r as Record<string, unknown>)[kf]))
+    );
+    const { data, error } = await supabase
+      .from(REMOTE[t])
+      .select("id")
+      .eq("user_id", currentUserId);
+    if (error) throw error;
+    const stale = (data ?? []).map((r) => (r as { id: string }).id).filter((id) => !localIds.has(id));
+    for (let i = 0; i < stale.length; i += DELETE_CHUNK) {
+      const chunk = stale.slice(i, i + DELETE_CHUNK);
+      const { error: delError } = await supabase
+        .from(REMOTE[t])
+        .delete()
+        .eq("user_id", currentUserId)
+        .in("id", chunk);
+      if (delError) throw delError;
+    }
   }
 }
 
 async function clearLocal() {
-  suspended = true;
+  suspendCount++;
   try {
-    for (const t of BACKUP_TABLES) await db.table(t).clear();
+    await db.transaction("rw", db.tables, async () => {
+      for (const t of BACKUP_TABLES) await db.table(t).clear();
+    });
   } finally {
-    suspended = false;
-  }
-}
-
-// Delete every cloud row for this user across all tables. Used when the seeded
-// program version changes so stale rows from the old program can't be pulled back.
-async function resetCloud(userId: string) {
-  if (!supabase) return;
-  for (const t of BACKUP_TABLES) {
-    const { error } = await supabase.from(REMOTE[t]).delete().eq("user_id", userId);
-    if (error) throw error;
+    suspendCount--;
   }
 }
 
 async function cloudHasData(userId: string): Promise<boolean> {
   if (!supabase) return false;
-  // `exercises` always exists for a synced user (seeded). A brand-new user has none.
   const { count, error } = await supabase
     .from(REMOTE.exercises)
     .select("id", { count: "exact", head: true })
@@ -223,12 +352,27 @@ async function cloudHasData(userId: string): Promise<boolean> {
   return (count ?? 0) > 0;
 }
 
+// The program version the CLOUD copy was written with. null when the cloud has
+// no program_meta (pre-v2 cloud, or brand-new account).
+async function cloudSeedVersion(userId: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from(REMOTE.programMeta)
+    .select("data")
+    .eq("user_id", userId)
+    .eq("id", "program")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return (data.data as ProgramMeta).seedVersion ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-// Begin syncing for a signed-in user. Reconciles local vs cloud, then keeps the
-// cloud updated via hooks. Safe to call repeatedly with the same user.
+// Begin syncing for a signed-in user. Decides between adopt/reconcile/migrate
+// using the CLOUD's program version — never a local-only flag.
 export async function startSync(userId: string): Promise<void> {
   if (!isSupabaseConfigured || !supabase) {
     setStatus({ state: "disabled" });
@@ -242,69 +386,134 @@ export async function startSync(userId: string): Promise<void> {
   setStatus({ state: "syncing", message: undefined });
 
   try {
-    // Program upgrade this launch: local was already wiped + reseeded to the new
-    // program. Purge the stale cloud copy and push the fresh seed (no pull-back).
-    if (didUpgradeProgram()) {
-      await resetCloud(userId);
-      await pushSnapshot();
-      localStorage.setItem(OWNER_KEY, userId);
-      if (gen !== startGeneration) return;
-      setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
-      return;
-    }
+    // Seeding must complete before any reconcile decision (kills the startup race).
+    await ensureSeeded();
+    if (gen !== startGeneration) return;
 
-    let owner = localStorage.getItem(OWNER_KEY);
-
-    // A different user's cache must not be visible — wipe it first.
+    // A different user's local cache must never leak across accounts.
+    const owner = localStorage.getItem(OWNER_KEY);
     if (owner && owner !== userId) {
       await clearLocal();
-      localStorage.removeItem(OWNER_KEY);
-      owner = null;
+      await reseedProgramData();
+      if (gen !== startGeneration) return;
     }
 
-    if (!owner) {
-      // Local belongs to nobody: either pre-auth data to adopt, or freshly cleared.
-      if (await cloudHasData(userId)) {
-        await pullSnapshot();
-      } else {
-        await ensureSeeded(); // guarantee local has at least the seed
-        await pushSnapshot(); // adopt pre-auth data / seed -> cloud
-      }
-      localStorage.setItem(OWNER_KEY, userId);
+    const [cloudVer, hasData] = [await cloudSeedVersion(userId), await cloudHasData(userId)];
+    if (gen !== startGeneration) return;
+
+    if (!hasData && cloudVer === null) {
+      // Brand-new account: adopt local (seed + any pre-auth logs) into the cloud.
+      await pushTables(BACKUP_TABLES);
+    } else if (cloudVer === SEED_VERSION) {
+      // Same program: push local state up (union), then pull the merged truth.
+      await pushTables(BACKUP_TABLES);
+      if (gen !== startGeneration) return;
+      await pullTables(BACKUP_TABLES);
     } else {
-      // Returning user on this device: flush local changes, then pull merged cloud.
-      await ensureSeeded();
-      await pushSnapshot();
-      await pullSnapshot();
+      // Cloud is on an older program (or predates program_meta): migrate it.
+      // Reference data: local new seed wins, stale cloud rows are pruned.
+      // Log data: pushed up FIRST so nothing local is lost, then pulled so
+      // history from the cloud lands on this device. History always survives.
+      await pushTables(REFERENCE_TABLES);
+      await pruneCloudTables(REFERENCE_TABLES);
+      if (gen !== startGeneration) return;
+      await pushTables(LOG_TABLES);
+      await pullTables(LOG_TABLES);
     }
 
-    if (gen !== startGeneration) return; // superseded by a newer start()
+    if (gen !== startGeneration) return;
+    localStorage.setItem(OWNER_KEY, userId);
     setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
   } catch (e) {
-    setStatus({ state: navigator.onLine ? "error" : "offline", message: errMessage(e) });
+    failStatus(e);
   }
 }
 
-// Stop syncing (on logout). Local cache is left intact and tagged to its owner,
-// so it is reused if the same user signs back in and replaced only if a
-// different user signs in. The auth gate hides app data until login regardless.
+// Stop syncing (on logout). Local cache is left intact and tagged to its owner;
+// the auth gate hides app data until login regardless.
 export function stopSync(): void {
   enabled = false;
   currentUserId = null;
+  startGeneration++; // invalidate any in-flight startSync
   dirty.clear();
   if (pushTimer) clearTimeout(pushTimer);
   setStatus({ state: "disabled", lastSyncedAt: status.lastSyncedAt });
 }
 
-// Manual full reconcile from the Settings screen.
-export async function syncNow(): Promise<void> {
-  if (!enabled || !supabase || !currentUserId) return;
+// Manual full reconcile (Settings "Sync now"). Returns true on success.
+export async function syncNow(): Promise<boolean> {
+  if (!enabled || !supabase || !currentUserId) return false;
   setStatus({ state: "syncing", message: undefined });
   try {
-    await pushSnapshot();
-    await pullSnapshot();
+    await retryPendingDeletes();
+    await pushTables(BACKUP_TABLES);
+    await pullTables(BACKUP_TABLES);
     setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
+    return true;
   } catch (e) {
-    setStatus({ state: navigator.onLine ? "error" : "offline", message: errMessage(e) });
+    failStatus(e);
+    return false;
   }
+}
+
+// Run a bulk local rewrite (e.g. backup import) without per-row sync traffic.
+// Callers should follow up with reconcileAfterImport().
+export async function withSyncPaused<T>(fn: () => Promise<T>): Promise<T> {
+  suspendCount++;
+  try {
+    return await fn();
+  } finally {
+    suspendCount--;
+  }
+}
+
+// One bounded reconcile after a program reseed. Only REFERENCE tables changed,
+// so only they are pushed/pruned — log tables must never be pruned here (a
+// device that hasn't pulled cloud history yet would delete it).
+export async function reconcileAfterReseed(): Promise<boolean> {
+  if (!enabled || !supabase || !currentUserId) return true; // local-only: nothing to do
+  setStatus({ state: "syncing", message: undefined });
+  try {
+    await pushTables(REFERENCE_TABLES);
+    await pruneCloudTables(REFERENCE_TABLES);
+    setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
+    return true;
+  } catch (e) {
+    failStatus(e);
+    return false;
+  }
+}
+
+// One bounded reconcile after a backup import. `replace` also prunes cloud rows
+// that the imported snapshot no longer contains — correct there, because the
+// import rewrote every table.
+export async function reconcileAfterImport(replace: boolean): Promise<boolean> {
+  if (!enabled || !supabase || !currentUserId) return true; // local-only: nothing to do
+  setStatus({ state: "syncing", message: undefined });
+  try {
+    await pushTables(BACKUP_TABLES);
+    if (replace) await pruneCloudTables(BACKUP_TABLES);
+    setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
+    return true;
+  } catch (e) {
+    failStatus(e);
+    return false;
+  }
+}
+
+// Explicit, user-requested total erase: cloud rows (when signed in) AND the
+// sync bookkeeping. The caller deletes the local DB and reloads.
+export async function eraseEverything(): Promise<{ cloudCleared: boolean }> {
+  const userId = currentUserId;
+  stopSync();
+  let cloudCleared = false;
+  if (isSupabaseConfigured && supabase && userId) {
+    for (const t of BACKUP_TABLES) {
+      const { error } = await supabase.from(REMOTE[t]).delete().eq("user_id", userId);
+      if (error) throw error;
+    }
+    cloudCleared = true;
+  }
+  localStorage.removeItem(OWNER_KEY);
+  return { cloudCleared };
 }

@@ -1,11 +1,15 @@
 import { db, BACKUP_TABLES, type BackupTableName } from "./db";
+import { SEED_VERSION } from "./seedRunner";
 
-const BACKUP_VERSION = 1;
+// v2: the data model changed shape (Exercise.primaryMuscles[], new tables).
+// v1 backups are rejected — importing them used to brick the UI.
+const BACKUP_VERSION = 2;
 const BACKUP_MAGIC = "personal-gym-tracker";
 
 export interface BackupFile {
   magic: string;
   version: number;
+  seedVersion: string;
   exportedAt: string;
   data: Record<BackupTableName, unknown[]>;
 }
@@ -21,6 +25,7 @@ export async function exportBackup(): Promise<BackupFile> {
   return {
     magic: BACKUP_MAGIC,
     version: BACKUP_VERSION,
+    seedVersion: SEED_VERSION,
     exportedAt: new Date().toISOString(),
     data,
   };
@@ -47,19 +52,58 @@ export interface ImportResult {
   counts?: Record<string, number>;
 }
 
+// Spot-check that rows match the current data model before we let them replace
+// good data. Exercises are the shape that changed in v2 and the one every
+// screen dereferences — a wrong-shape exercise row breaks the whole UI.
+function validateShapes(data: Record<string, unknown[]>): string | null {
+  const exercises = data["exercises"];
+  if (Array.isArray(exercises)) {
+    for (const row of exercises) {
+      const r = row as Record<string, unknown>;
+      if (!r || typeof r["id"] !== "string" || !Array.isArray(r["primaryMuscles"])) {
+        return "Backup contains old-format exercise data and can't be imported.";
+      }
+    }
+  }
+  for (const name of ["workoutSessions", "setEntries"] as const) {
+    const rows = data[name];
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        const r = row as Record<string, unknown>;
+        if (!r || typeof r["id"] !== "string") {
+          return `Backup contains malformed ${name} rows and can't be imported.`;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 // Validate then restore a backup. `replace` clears existing data first;
 // otherwise it merges (upsert by primary key). Everything happens in one
 // transaction so a malformed file can't leave the DB half-written.
+//
+// NOTE for signed-in use: call this inside withSyncPaused() and follow with
+// reconcileAfterImport() (see src/sync/supabaseSync.ts) — SettingsScreen does.
 export async function importBackup(json: unknown, replace = true): Promise<ImportResult> {
   const parsed = json as Partial<BackupFile>;
   if (!parsed || parsed.magic !== BACKUP_MAGIC || typeof parsed.data !== "object") {
     return { ok: false, message: "Not a valid Gym Tracker backup file." };
   }
-  if (typeof parsed.version !== "number" || parsed.version > BACKUP_VERSION) {
-    return { ok: false, message: `Unsupported backup version (${parsed.version}).` };
+  if (parsed.version !== BACKUP_VERSION) {
+    return {
+      ok: false,
+      message:
+        typeof parsed.version === "number" && parsed.version < BACKUP_VERSION
+          ? "This backup is from an older app version and can't be imported."
+          : `Unsupported backup version (${parsed.version}).`,
+    };
   }
 
   const data = parsed.data as Record<string, unknown[]>;
+  const shapeError = validateShapes(data);
+  if (shapeError) return { ok: false, message: shapeError };
+
   // Only accept known tables; ignore any extras defensively.
   const tablesToWrite = BACKUP_TABLES.filter(
     (name) => Array.isArray(data[name])
