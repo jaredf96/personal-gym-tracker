@@ -2,7 +2,17 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { getWeeklyVolume, listBodyMetrics, getSettings } from "../db/repo";
 import { startOfWeek, endOfWeek, daysAgo } from "../lib/dates";
 import { fmtNum } from "../lib/format";
-import { ScreenHeader, Empty, VolumePill } from "../components/ui";
+import { ScreenHeader, Empty } from "../components/ui";
+import ProgressRing from "../components/ProgressRing";
+import ScreenSkeleton from "../components/Skeleton";
+import type { VolumeStatus } from "../engine/volume";
+
+const STATUS_COLOR: Record<VolumeStatus, string> = {
+  "in-range": "var(--green)",
+  low: "var(--amber)",
+  high: "var(--red)",
+  "no-target": "var(--text-faint)",
+};
 
 export default function DashboardScreen() {
   const data = useLiveQuery(async () => {
@@ -14,7 +24,7 @@ export default function DashboardScreen() {
     return { volume, metrics, settings };
   }, []);
 
-  if (!data) return <div className="screen">Loading…</div>;
+  if (!data) return <ScreenSkeleton />;
   const { volume, metrics, settings } = data;
   const unit = settings.unit;
 
@@ -38,6 +48,9 @@ export default function DashboardScreen() {
       ? Math.round((recentBw.reduce((a, b) => a + b, 0) / recentBw.length) * 10) / 10
       : null;
 
+  const targeted = volume.filter((v) => v.target);
+  const untargeted = volume.filter((v) => !v.target && v.hardSets > 0);
+
   return (
     <div className="screen">
       <ScreenHeader title="Progress" subtitle={`This week · ${weekLabel}`} />
@@ -50,65 +63,49 @@ export default function DashboardScreen() {
         </div>
       </div>
 
-      <h3 className="mt-lg mb">Weekly hard sets by muscle</h3>
-      {volume.length === 0 ? (
-        <Empty>No sets logged this week.</Empty>
-      ) : (
-        volume.map((v) => {
-          const min = v.target?.minSets ?? 0;
-          const max = v.target?.maxSets ?? 0;
-          const axisMax = Math.max(max, v.hardSets, 1) * 1.25;
-          const fillColor =
-            v.status === "in-range"
-              ? "var(--green)"
-              : v.status === "low"
-              ? "var(--amber)"
-              : v.status === "high"
-              ? "var(--red)"
-              : "var(--text-faint)";
-          return (
-            <div key={v.muscle} className="card">
-              <div className="row between">
-                <h3>{v.label}</h3>
-                <VolumePill status={v.status} />
+      <div className="card">
+        <h3 className="mb">Weekly hard sets</h3>
+        {targeted.length === 0 ? (
+          <Empty>No volume targets seeded.</Empty>
+        ) : (
+          <div className="ring-grid">
+            {targeted.map((v) => (
+              <div key={v.muscle} className="ring-cell">
+                <ProgressRing
+                  value={v.hardSets}
+                  target={v.target!.targetSets}
+                  color={STATUS_COLOR[v.status]}
+                >
+                  <span className="ring-value">{fmtNum(v.hardSets)}</span>
+                </ProgressRing>
+                <div className="ring-label">{v.label}</div>
+                <div className="ring-band">
+                  {v.target!.targetSets} ({v.target!.minSets}–{v.target!.maxSets})
+                </div>
               </div>
-              <div className="row between small muted" style={{ marginTop: 2 }}>
-                <span>
-                  {fmtNum(v.hardSets)} set{v.hardSets === 1 ? "" : "s"}
-                </span>
-                {v.target ? (
-                  <span>
-                    target {v.target.targetSets} ({min}–{max})
-                  </span>
-                ) : (
-                  <span className="faint">no target</span>
-                )}
-              </div>
-              <div className="vbar-track mt">
-                {v.target && (
-                  <div
-                    className="vbar-range"
-                    style={{
-                      left: `${(min / axisMax) * 100}%`,
-                      width: `${((max - min) / axisMax) * 100}%`,
-                    }}
-                  />
-                )}
-                <div
-                  className="vbar-fill"
-                  style={{
-                    width: `${Math.min(100, (v.hardSets / axisMax) * 100)}%`,
-                    background: fillColor,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })
+            ))}
+          </div>
+        )}
+        <div className="faint tiny mt">
+          Ring fills at the weekly target; color shows low / in range / high. Warm-ups don't count.
+        </div>
+      </div>
+
+      {untargeted.length > 0 && (
+        <div className="card">
+          <h3 className="mb">Other work this week</h3>
+          <div className="row wrap">
+            {untargeted.map((v) => (
+              <span key={v.muscle} className="pill">
+                {v.label}: {fmtNum(v.hardSets)}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
 
       {latestBw != null && (
-        <div className="card mt-lg">
+        <div className="card">
           <h3 className="mb">Bodyweight</h3>
           <div className="row wrap">
             <span className="pill accent">

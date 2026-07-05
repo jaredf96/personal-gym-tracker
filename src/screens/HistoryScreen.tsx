@@ -2,11 +2,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
 import { getLoggedExercises } from "../db/repo";
 import { ScreenHeader, Empty, Pill } from "../components/ui";
+import ScreenSkeleton from "../components/Skeleton";
 
 export default function HistoryScreen() {
   const exercises = useLiveQuery(() => getLoggedExercises(), []);
 
-  if (!exercises) return <div className="screen">Loading…</div>;
+  if (!exercises) return <ScreenSkeleton />;
 
   // Group by primary muscle for a tidy list.
   const byMuscle = new Map<string, typeof exercises>();

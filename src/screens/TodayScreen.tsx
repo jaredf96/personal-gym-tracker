@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
 import { db } from "../db/db";
@@ -17,7 +18,13 @@ import { fmtNum } from "../lib/format";
 import { ScreenHeader, Pill } from "../components/ui";
 import ReadinessCard from "../components/ReadinessCard";
 import CardioCard from "../components/CardioCard";
+import ScreenSkeleton from "../components/Skeleton";
 import type { WorkoutTemplate } from "../types";
+
+// Feeds the split color into .card.hero (border tint + colored glow).
+function heroStyle(color?: string): CSSProperties {
+  return color ? ({ "--hero": color } as CSSProperties) : {};
+}
 
 export default function TodayScreen() {
   const navigate = useNavigate();
@@ -41,7 +48,7 @@ export default function TodayScreen() {
     return { templates, today, tomorrow, nextLift: nextInfo.template, active, settings, lastSummary, deload };
   }, []);
 
-  if (!data) return <div className="screen">Loading…</div>;
+  if (!data) return <ScreenSkeleton />;
   const { templates, today, tomorrow, nextLift, active, settings, lastSummary, deload } = data;
 
   async function start(templateId: string | undefined) {
@@ -152,7 +159,7 @@ function PlanCard({
   if (today.completed && today.completedTemplate) {
     const t = today.completedTemplate;
     return (
-      <div className="card" style={{ borderColor: t.color }}>
+      <div className="card hero" style={heroStyle(t.color)}>
         <div className="muted small">Today — done ✓</div>
         <h2 style={{ color: t.color }}>{t.name}</h2>
         <div className="muted small mt">Nice work. Rest up and check tomorrow's plan below.</div>
@@ -164,7 +171,7 @@ function PlanCard({
   if (today.isWorkoutDay) {
     const t = today.plannedTemplate ?? nextLift;
     return (
-      <div className="card" style={{ borderColor: t?.color ?? "var(--accent-dim)" }}>
+      <div className="card hero" style={heroStyle(t?.color)}>
         <div className="muted small">Today — workout</div>
         <h2 style={{ color: t?.color }}>{t?.name ?? "Workout"}</h2>
         <button
@@ -211,7 +218,7 @@ function ActiveCard({
 }) {
   const t = templates.find((x) => x.id === templateId);
   return (
-    <div className="card" style={{ borderColor: t?.color ?? "var(--accent-dim)" }}>
+    <div className="card hero" style={heroStyle(t?.color)}>
       <div className="row between">
         <div>
           <div className="muted small">Workout in progress</div>

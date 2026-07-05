@@ -63,7 +63,7 @@ export default function CalendarScreen() {
         </div>
 
         {!data ? (
-          <div className="muted small center">Loading…</div>
+          <div className="cal-grid">{Array.from({ length: 35 }, (_, i) => (<div key={i} className="skel" style={{ aspectRatio: "1 / 1", borderRadius: 10 }} />))}</div>
         ) : (
           <div className="cal-grid">
             {data.map((day) => (

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate, useParams } from "react-router-dom";
 import { db } from "../db/db";
-import { analyzeSession } from "../engine/analysis";
+import { analyzeSession, getExerciseHistoryWithPRs } from "../engine/analysis";
 import { getSettings, getWeeklySchedule, listTemplates } from "../db/repo";
+import ScreenSkeleton from "../components/Skeleton";
 import { describeDate } from "../engine/schedule";
 import { generateCoachSummary, getLatestReportForSession } from "../ai/coachService";
 import { fmtNum, fmtWeight, signed, plural } from "../lib/format";
@@ -27,10 +28,28 @@ export default function SummaryScreen() {
     ]);
     const tomorrowDate = todayISODate(new Date(Date.now() + 86_400_000));
     const tomorrow = describeDate(tomorrowDate, schedule, templates, sessions);
-    return { analysis, settings, report, tomorrow };
+
+    // PRs set in THIS session (weight / volume / est-1RM), for the celebration.
+    const prs: { name: string; kinds: string[] }[] = [];
+    if (analysis) {
+      for (const e of analysis.exercises) {
+        const history = await getExerciseHistoryWithPRs(e.exerciseId);
+        const entry = history?.entries.find((h) => h.session.id === sessionId);
+        if (!entry) continue;
+        const kinds = [
+          entry.isWeightPR ? "weight" : null,
+          entry.isVolumePR ? "volume" : null,
+          entry.isEst1rmPR ? "≈1RM" : null,
+        ].filter((k): k is string => !!k);
+        // Only celebrate when there is history to beat — a first-ever session
+        // is a baseline, not a PR.
+        if (kinds.length && history!.entries.length > 1) prs.push({ name: e.name, kinds });
+      }
+    }
+    return { analysis, settings, report, tomorrow, prs };
   }, [sessionId]);
 
-  if (!data) return <div className="screen">Loading…</div>;
+  if (!data) return <ScreenSkeleton />;
   if (!data.analysis) {
     return (
       <div className="screen">
@@ -40,7 +59,7 @@ export default function SummaryScreen() {
     );
   }
 
-  const { analysis, settings, report, tomorrow } = data;
+  const { analysis, settings, report, tomorrow, prs } = data;
   const unit = settings.unit;
 
   const tomorrowText = tomorrow.isWorkoutDay
@@ -85,6 +104,22 @@ export default function SummaryScreen() {
           )}
         </div>
       </div>
+
+      {/* PR celebration */}
+      {prs.length > 0 && (
+        <div className="pr-banner" style={{ marginBottom: 12 }}>
+          <div className="pr-title">
+            🏆 {prs.length === 1 ? "New personal record!" : `${prs.length} personal records!`}
+          </div>
+          <div className="row wrap mt">
+            {prs.map((p) => (
+              <span key={p.name} className="pill gold">
+                {p.name} · {p.kinds.join(" + ")}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tomorrow's plan */}
       <div className="card" style={{ borderColor: tomorrowColor }}>

@@ -5,6 +5,7 @@ import { getSettings } from "../db/repo";
 import { fmtNum, fmtWeight } from "../lib/format";
 import { relativeDay } from "../lib/dates";
 import { ScreenHeader, Empty, Pill, TrendPill } from "../components/ui";
+import ScreenSkeleton from "../components/Skeleton";
 
 export default function ExerciseHistoryScreen() {
   const { exerciseId } = useParams();
@@ -19,7 +20,7 @@ export default function ExerciseHistoryScreen() {
     return { history, settings };
   }, [exerciseId]);
 
-  if (!data) return <div className="screen">Loading…</div>;
+  if (!data) return <ScreenSkeleton />;
   if (!data.history) {
     return (
       <div className="screen">

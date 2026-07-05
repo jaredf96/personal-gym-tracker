@@ -17,6 +17,7 @@ import { ScreenHeader, Pill } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { useAuth } from "../auth/AuthProvider";
 import { useSyncStatus } from "../sync/useSyncStatus";
+import ScreenSkeleton from "../components/Skeleton";
 import {
   syncNow,
   withSyncPaused,
@@ -57,7 +58,7 @@ export default function SettingsScreen() {
   const [bw, setBw] = useState("");
   const [waist, setWaist] = useState("");
 
-  if (!data) return <div className="screen">Loading…</div>;
+  if (!data) return <ScreenSkeleton />;
   const { settings, metrics } = data;
 
   async function patch(p: Partial<Settings>) {

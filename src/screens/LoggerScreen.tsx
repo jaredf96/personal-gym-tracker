@@ -16,12 +16,13 @@ import ExerciseCard from "../components/ExerciseCard";
 import RestTimer from "../components/RestTimer";
 import { ScreenHeader, Empty } from "../components/ui";
 import { useToast } from "../components/Toast";
+import ScreenSkeleton from "../components/Skeleton";
 
 export default function LoggerScreen() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const [rest, setRest] = useState<{ endAt: number } | null>(null);
+  const [rest, setRest] = useState<{ endAt: number; totalMs: number } | null>(null);
 
   const data = useLiveQuery(async () => {
     let session = sessionId ? await db.workoutSessions.get(sessionId) : undefined;
@@ -37,7 +38,7 @@ export default function LoggerScreen() {
     return { session, template, plan, sets, settings };
   }, [sessionId]);
 
-  if (!data) return <div className="screen">Loading…</div>;
+  if (!data) return <ScreenSkeleton />;
 
   if (!data.session || !data.plan) {
     return (
@@ -70,7 +71,7 @@ export default function LoggerScreen() {
 
   function onSetLogged(restSeconds: number) {
     if (settings.restTimerAutoStart && restSeconds > 0) {
-      setRest({ endAt: Date.now() + restSeconds * 1000 });
+      setRest({ endAt: Date.now() + restSeconds * 1000, totalMs: restSeconds * 1000 });
     }
     toast.show("Set logged");
   }
@@ -127,7 +128,16 @@ export default function LoggerScreen() {
       {rest && (
         <RestTimer
           endAt={rest.endAt}
-          onExtend={(s) => setRest((r) => (r ? { endAt: r.endAt + s * 1000 } : r))}
+          totalMs={rest.totalMs}
+          onExtend={(s) =>
+            setRest((r) => {
+              if (!r) return r;
+              // Extend from NOW when the countdown already expired — "+30s"
+              // after 0:00 used to be a no-op.
+              const base = Math.max(r.endAt, Date.now());
+              return { endAt: base + s * 1000, totalMs: r.totalMs + s * 1000 };
+            })
+          }
           onSkip={() => setRest(null)}
         />
       )}
