@@ -99,6 +99,22 @@ def volume_muscles(primary):
     return out
 
 
+# Muscles whose weekly target explicitly counts secondary/indirect work (the
+# program notes glutes as "effective sets across hinges, hyperext, split
+# squats"). Secondary sets earn HALF credit in the volume engine. Other targets
+# (biceps/triceps/front delts) are direct-only by the program's own notes.
+SECONDARY_VOLUME_CREDIT = {"glutes"}
+
+
+def secondary_volume_muscles(secondary, primary_keys):
+    out = []
+    for m in secondary or []:
+        key = MUSCLE_TO_TARGET.get(m.strip().lower())
+        if key and key in SECONDARY_VOLUME_CREDIT and key not in out and key not in primary_keys:
+            out.append(key)
+    return out
+
+
 def main():
     md = open(SRC).read()
     m = re.search(r"```json\s*(\{.*?\})\s*```", md, re.S)
@@ -153,6 +169,7 @@ def main():
                     "primaryMuscles": prim,
                     "secondaryMuscles": sec,
                     "volumeMuscles": vmusc,
+                    "secondaryVolumeMuscles": secondary_volume_muscles(sec, vmusc),
                     "movementPattern": movement_pattern(name),
                     "defaultRepMin": rmin,
                     "defaultRepMax": rmax,

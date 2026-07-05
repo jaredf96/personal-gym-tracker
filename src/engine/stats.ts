@@ -92,11 +92,11 @@ export function computeSetStats(sets: SetEntry[]): SetStats {
 // Heuristic detector for pain / fatigue language in free-text notes.
 // Used by the conservative progression rule and the fatigue flag — never to
 // diagnose, only to bias toward "repeat / be careful".
-const PAIN_WORDS = ["pain", "tweak", "sore", "ache", "hurt", "back", "knee", "shoulder", "elbow", "strain"];
+// Deliberately matches only pain-adjacent words: bare body parts ("back",
+// "knee") appear constantly in benign cues ("keep back tight") and used to
+// silently block progression.
+const PAIN_RE =
+  /\b(pain|painful|hurt|hurts|hurting|tweak|tweaked|twinge|strain|strained|ache|aching|achy|sore|soreness|pinch|pinching|sharp)\b/i;
 export function hasPainNote(notes: (string | undefined)[]): boolean {
-  return notes.some((n) => {
-    if (!n) return false;
-    const lower = n.toLowerCase();
-    return PAIN_WORDS.some((w) => lower.includes(w));
-  });
+  return notes.some((n) => !!n && PAIN_RE.test(n));
 }

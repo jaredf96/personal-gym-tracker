@@ -7,6 +7,7 @@ import {
 import { db } from "../db/db";
 import { detectFatigue } from "./flags";
 import { hasPainNote } from "./stats";
+import { daysAgo } from "../lib/dates";
 
 // Deterministic deload assessment from the program's triggers:
 //  - a movement pattern dropping for 2 consecutive exposures
@@ -60,9 +61,10 @@ export async function getDeloadAssessment(): Promise<DeloadAssessment> {
     reasons.push("Discomfort noted in multiple recent sessions");
   }
 
-  // 3. Poor readiness alongside falling performance.
+  // 3. Poor readiness alongside falling performance — within the last 7 DAYS
+  // (not the last 7 entries, which could reach weeks into the past).
   const lowReadiness = readiness
-    .slice(0, 7)
+    .filter((r) => daysAgo(r.date) <= 7)
     .filter((r) => (r.sleep ?? 5) <= 2 || (r.energy ?? 5) <= 2 || (r.soreness ?? 0) >= 4);
   if (lowReadiness.length >= 2 && fatiguedLifts.length >= 1) {
     reasons.push("Low readiness alongside dropping performance");

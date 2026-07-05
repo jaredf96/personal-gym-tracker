@@ -70,7 +70,7 @@ export async function buildCoachContext(sessionId: string): Promise<CoachContext
   // Weekly volume for the week containing this session.
   const weekly = await getWeeklyVolume(new Date(analysis.session.date + "T12:00:00"));
   const weeklyVolume = weekly.map((v) => ({
-    muscle: v.muscle,
+    muscle: v.label, // human label ("Back / Lats"), never the raw taxonomy key
     hardSets: v.hardSets,
     min: v.target?.minSets ?? null,
     max: v.target?.maxSets ?? null,

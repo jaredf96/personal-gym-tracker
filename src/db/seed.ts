@@ -28,6 +28,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "chest"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Press",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
@@ -54,6 +55,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "back_lats_upper_back"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Row/Pull",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
@@ -78,6 +80,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "back_lats_upper_back"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Row/Pull",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -103,6 +106,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "front_delts"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Press",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
@@ -125,6 +129,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "chest"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -147,6 +152,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "side_delts"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 12,
     "defaultRepMax": 20,
@@ -172,6 +178,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "rear_delts"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 12,
     "defaultRepMax": 20,
@@ -194,6 +201,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "biceps"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -216,6 +224,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "triceps"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Press",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -239,6 +248,9 @@ export const seedExercises: Exercise[] = [
     ],
     "volumeMuscles": [
       "quads"
+    ],
+    "secondaryVolumeMuscles": [
+      "glutes"
     ],
     "movementPattern": "Squat/Knee",
     "defaultRepMin": 6,
@@ -265,6 +277,9 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "hamstrings"
     ],
+    "secondaryVolumeMuscles": [
+      "glutes"
+    ],
     "movementPattern": "Hinge",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
@@ -289,6 +304,9 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "quads"
     ],
+    "secondaryVolumeMuscles": [
+      "glutes"
+    ],
     "movementPattern": "Squat/Knee",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -311,6 +329,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "hamstrings"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -333,6 +352,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "quads"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 12,
     "defaultRepMax": 20,
@@ -355,6 +375,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "calves"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -377,6 +398,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "abs_core"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -400,6 +422,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "abs_core"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Press",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -425,6 +448,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "chest"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Press",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
@@ -449,6 +473,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "back_lats_upper_back"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Row/Pull",
     "defaultRepMin": 6,
     "defaultRepMax": 10,
@@ -474,6 +499,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "back_lats_upper_back"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Row/Pull",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -499,6 +525,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "chest"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Press",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -521,6 +548,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "chest"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 12,
     "defaultRepMax": 20,
@@ -543,6 +571,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "side_delts"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 12,
     "defaultRepMax": 20,
@@ -565,6 +594,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "rear_delts"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 12,
     "defaultRepMax": 20,
@@ -587,6 +617,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "biceps"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -609,6 +640,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "triceps"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -632,6 +664,9 @@ export const seedExercises: Exercise[] = [
     ],
     "volumeMuscles": [
       "quads"
+    ],
+    "secondaryVolumeMuscles": [
+      "glutes"
     ],
     "movementPattern": "Squat/Knee",
     "defaultRepMin": 8,
@@ -658,6 +693,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "glutes"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Hinge",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -684,6 +720,7 @@ export const seedExercises: Exercise[] = [
       "quads",
       "glutes"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Squat/Knee",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -706,6 +743,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "hamstrings"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 8,
     "defaultRepMax": 12,
@@ -728,6 +766,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "calves"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 15,
@@ -750,6 +789,7 @@ export const seedExercises: Exercise[] = [
     "volumeMuscles": [
       "abs_core"
     ],
+    "secondaryVolumeMuscles": [],
     "movementPattern": "Isolation/Core",
     "defaultRepMin": 10,
     "defaultRepMax": 20,

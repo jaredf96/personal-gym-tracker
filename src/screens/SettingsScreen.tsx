@@ -61,7 +61,10 @@ export default function SettingsScreen() {
   const { settings, metrics } = data;
 
   async function patch(p: Partial<Settings>) {
-    await db.settings.put({ ...settings, ...p });
+    // Read fresh instead of spreading the render closure — two quick changes
+    // (e.g. toggling unit then rest timer) must not revert each other.
+    const current = await getSettings();
+    await db.settings.put({ ...current, ...p });
   }
 
   async function saveBodyMetric() {
@@ -231,7 +234,11 @@ export default function SettingsScreen() {
             <input
               inputMode="decimal"
               defaultValue={settings.weightIncrementUpper}
-              onBlur={(e) => patch({ weightIncrementUpper: parseFloat(e.target.value) || 0 })}
+              onBlur={(e) => {
+                const v = parseFloat(e.target.value);
+                if (Number.isFinite(v) && v > 0) patch({ weightIncrementUpper: v });
+                else e.target.value = String(settings.weightIncrementUpper);
+              }}
             />
           </label>
           <label className="field grow">
@@ -239,7 +246,11 @@ export default function SettingsScreen() {
             <input
               inputMode="decimal"
               defaultValue={settings.weightIncrementLower}
-              onBlur={(e) => patch({ weightIncrementLower: parseFloat(e.target.value) || 0 })}
+              onBlur={(e) => {
+                const v = parseFloat(e.target.value);
+                if (Number.isFinite(v) && v > 0) patch({ weightIncrementLower: v });
+                else e.target.value = String(settings.weightIncrementLower);
+              }}
             />
           </label>
         </div>

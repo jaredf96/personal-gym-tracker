@@ -227,7 +227,7 @@ export async function getExerciseHistoryWithPRs(
   let bestWeight = 0;
   let bestVolume = 0;
   let bestEst1rm = 0;
-  let prevVolume: number | null = null;
+  let prev: { volume: number; reps: number; topWeight: number } | null = null;
 
   const flagged = oldToNew.map(({ session, sets }) => {
     const stats = computeSetStats(sets);
@@ -239,15 +239,16 @@ export async function getExerciseHistoryWithPRs(
     bestEst1rm = Math.max(bestEst1rm, stats.bestEst1rm);
 
     let trend: Trend = "new";
-    if (prevVolume !== null) {
-      trend =
-        stats.totalVolume > prevVolume
-          ? "improved"
-          : stats.totalVolume < prevVolume
-          ? "regressed"
-          : "matched";
+    if (prev !== null) {
+      // Volume first, then reps, then top weight — so bodyweight (0-load)
+      // exercises still register progress via reps.
+      const delta =
+        stats.totalVolume - prev.volume ||
+        stats.totalReps - prev.reps ||
+        stats.topWeight - prev.topWeight;
+      trend = delta > 0 ? "improved" : delta < 0 ? "regressed" : "matched";
     }
-    prevVolume = stats.totalVolume;
+    prev = { volume: stats.totalVolume, reps: stats.totalReps, topWeight: stats.topWeight };
 
     return { session, stats, trendVsPrev: trend, isWeightPR, isVolumePR, isEst1rmPR };
   });

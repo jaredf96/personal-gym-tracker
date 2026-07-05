@@ -138,8 +138,10 @@ export async function deleteSetEntry(id: string): Promise<void> {
 // Exercise history helpers (used by history screen, progression, coach)
 // ---------------------------------------------------------------------------
 
-// All sessions in which an exercise was performed, newest first, each with the
-// sets for that exercise only.
+// All COMPLETED sessions in which an exercise was performed, newest first,
+// each with the sets for that exercise only. In-progress sessions are
+// excluded: a half-logged workout must never read as a performance drop
+// (fatigue/deload) or as the "previous session" baseline.
 export async function getExerciseSessionHistory(
   exerciseId: string
 ): Promise<SessionWithSets[]> {
@@ -154,7 +156,7 @@ export async function getExerciseSessionHistory(
   const sessions = await db.workoutSessions.bulkGet([...bySession.keys()]);
   const out: SessionWithSets[] = [];
   for (const session of sessions) {
-    if (!session) continue;
+    if (!session || !session.endedAt) continue;
     const setList = (bySession.get(session.id) ?? []).sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt)
     );

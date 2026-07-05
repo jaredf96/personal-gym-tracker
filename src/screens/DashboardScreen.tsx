@@ -74,7 +74,7 @@ export default function DashboardScreen() {
               </div>
               <div className="row between small muted" style={{ marginTop: 2 }}>
                 <span>
-                  {v.hardSets} set{v.hardSets === 1 ? "" : "s"}
+                  {fmtNum(v.hardSets)} set{v.hardSets === 1 ? "" : "s"}
                 </span>
                 {v.target ? (
                   <span>

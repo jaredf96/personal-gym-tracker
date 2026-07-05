@@ -24,6 +24,9 @@ export interface Exercise {
   secondaryMuscles: string[];
   // Canonical weekly-volume target keys this exercise's working sets count toward.
   volumeMuscles: string[];
+  // Targets that earn HALF credit per set (program counts some secondary work,
+  // e.g. glutes on hinges/squats).
+  secondaryVolumeMuscles: string[];
   movementPattern: string; // "Press" | "Hinge" | "Squat/Knee" | "Row/Pull" | "Isolation/Core"
   defaultRepMin: number;
   defaultRepMax: number;

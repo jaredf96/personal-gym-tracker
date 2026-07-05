@@ -34,13 +34,14 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged 
     const r = parseInt(reps, 10);
     if (!Number.isFinite(r) || r <= 0) return;
     const w = weight === "" ? 0 : parseFloat(weight);
+    const rirN = parseInt(rir, 10);
     await addSetEntry({
       sessionId,
       exerciseId: exercise.id,
       setNumber: sets.length + 1,
       weight: Number.isFinite(w) ? w : 0,
       reps: r,
-      rir: rir === "" ? undefined : parseInt(rir, 10),
+      rir: Number.isFinite(rirN) ? rirN : undefined, // garbage input never stores NaN
       isWarmup,
       notes: note || undefined,
     });
@@ -220,8 +221,8 @@ function LoggedSetRow({ set, index }: { set: SetEntry; index: number }) {
         inputMode="numeric"
         defaultValue={set.rir ?? ""}
         onBlur={(e) => {
-          const v = e.target.value;
-          updateSetEntry({ ...set, rir: v === "" ? undefined : parseInt(v, 10) });
+          const n = parseInt(e.target.value, 10);
+          updateSetEntry({ ...set, rir: Number.isFinite(n) ? n : undefined });
         }}
       />
       <button

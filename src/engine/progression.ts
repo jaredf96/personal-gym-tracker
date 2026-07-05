@@ -29,20 +29,25 @@ export interface ProgressionSuggestion {
   readyToProgress: boolean;
 }
 
-// "Smallest practical jump." Heavy lower-body compounds tolerate a bigger step.
+// "Smallest practical jump." Heavy lower-body COMPOUNDS tolerate a bigger step;
+// lower-body isolations (leg curls, hyperextensions) get the small jump.
 function incrementFor(exercise: Exercise, settings: Settings): number {
   const heavy =
-    exercise.movementPattern === "Squat/Knee" || exercise.movementPattern === "Hinge";
+    exercise.type === "compound" &&
+    (exercise.movementPattern === "Squat/Knee" || exercise.movementPattern === "Hinge");
   return heavy ? settings.weightIncrementLower : settings.weightIncrementUpper;
 }
 
-// All target working sets reached the top of the rep range.
+// All working sets at ONE load (no pyramids/back-offs mixed in).
+function uniformLoad(stats: SetStats): boolean {
+  return Math.abs(stats.topWeight - stats.baseWeight) < 0.001;
+}
+
+// Ready to load up: the target number of sets, every one at the top of the rep
+// range, all at the same weight. A back-off or pyramid session never triggers
+// an increase — the top weight is the anchor and every set must earn it there.
 function allSetsAtTop(stats: SetStats, te: TemplateExercise): boolean {
-  return (
-    stats.setCount >= te.targetSets &&
-    stats.minReps >= te.repMax &&
-    stats.workingSets.every((s) => s.reps >= te.repMax)
-  );
+  return uniformLoad(stats) && stats.setCount >= te.targetSets && stats.minReps >= te.repMax;
 }
 
 export function suggestProgression(
@@ -73,7 +78,10 @@ export function suggestProgression(
   const stats = computeSetStats(previousSets);
   const atTop = allSetsAtTop(stats, te);
   const inc = incrementFor(exercise, settings);
-  const weight = stats.baseWeight; // the load all working sets were performed at
+  // Anchor on the TOP working weight — never the lightest set, so back-off
+  // sets and pyramids can't drag the suggestion below what was actually lifted.
+  const weight = stats.topWeight;
+  const mixed = !uniformLoad(stats);
   const w = (n: number) => fmtWeight(n, settings.unit);
 
   switch (te.progressionRule) {
@@ -96,7 +104,9 @@ export function suggestProgression(
         kind: "add-reps",
         action: "Add reps",
         suggestedWeight: weight,
-        detail: `Stay at ${w(weight)}. Last set ${stats.totalReps} total reps — beat that, aiming for ${te.repMax} on every set before adding load.`,
+        detail: mixed
+          ? `Work at ${w(weight)} (your top weight last time — loads were mixed). Hit ${te.repMax} on all ${te.targetSets} sets there before adding load.`
+          : `Stay at ${w(weight)}. Last time: ${stats.totalReps} total working reps — beat that, aiming for ${te.repMax} on every set before adding load.`,
       };
     }
 
