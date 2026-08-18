@@ -1,6 +1,7 @@
 import { db, BACKUP_TABLES, REFERENCE_TABLES, LOG_TABLES, type BackupTableName } from "../db/db";
 import { ensureSeeded, reseedProgramData, repairData, SEED_VERSION } from "../db/seedRunner";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { takeSnapshot } from "../db/snapshot";
 import type { ProgramMeta } from "../types";
 
 // ===========================================================================
@@ -320,14 +321,19 @@ async function pullTables(tables: readonly BackupTableName[]) {
         const table = db.table(t);
         const localIds = (await table.toCollection().primaryKeys()).map(String);
 
-        const toDelete = localIds.filter(
-          (id) => !cloudIds.has(id) && !touchedSincePull(t, id)
-        );
+        // ADDITIVE ONLY. A local row missing from the cloud used to be deleted
+        // ("cloud wins"), which destroys anything logged while a push was
+        // failing — e.g. a workout recorded offline in the gym. Real deletions
+        // still propagate device -> cloud immediately via the deleting hook
+        // (with retry), so a deleted row is gone from the cloud and simply
+        // never comes back. The tradeoff — a row deleted on another device can
+        // linger locally until deleted here — is far cheaper than losing data.
+        void cloudIds;
+        void localIds;
         const toPut = cloudRows.filter(
           (r) => !touchedSincePull(t, String((r as Record<string, unknown>)[kf]))
         );
 
-        if (toDelete.length) await table.bulkDelete(toDelete);
         if (toPut.length) await table.bulkPut(toPut as never[]);
       }
     });
@@ -419,6 +425,8 @@ export async function startSync(userId: string): Promise<void> {
   try {
     // Seeding must complete before any reconcile decision (kills the startup race).
     await ensureSeeded();
+    // Safety net: stash local logs before any cloud reconcile touches them.
+    await takeSnapshot("before sync reconcile");
     if (gen !== startGeneration) return;
 
     // A different user's local cache must never leak across accounts.

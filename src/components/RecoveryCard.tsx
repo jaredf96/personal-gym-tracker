@@ -3,6 +3,7 @@ import { db } from "../db/db";
 import { fetchCloudSessions, restoreSessionsFromCloud, type RemoteSessionRow } from "../sync/supabaseSync";
 import { useToast } from "./Toast";
 import { Pill } from "./ui";
+import { listSnapshots, restoreSnapshot, type SnapshotMeta } from "../db/snapshot";
 
 interface LocalRow {
   id: string;
@@ -20,6 +21,7 @@ export default function RecoveryCard() {
   const [local, setLocal] = useState<LocalRow[] | null>(null);
   const [cloud, setCloud] = useState<RemoteSessionRow[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [snaps, setSnaps] = useState<SnapshotMeta[]>([]);
 
   async function scan() {
     setBusy(true);
@@ -37,6 +39,7 @@ export default function RecoveryCard() {
       }
       rows.sort((a, b) => b.date.localeCompare(a.date));
       setLocal(rows);
+      setSnaps(listSnapshots());
       try {
         setCloud(await fetchCloudSessions());
       } catch {
@@ -122,6 +125,34 @@ export default function RecoveryCard() {
               </div>
             ))}
           </div>
+
+          {snaps.length > 0 && (
+            <div className="mt">
+              <div className="faint tiny mb">Local safety snapshots:</div>
+              {snaps.map((sn, i) => (
+                <div key={sn.takenAt} className="list-row">
+                  <div>
+                    <div className="small">
+                      {new Date(sn.takenAt).toLocaleString()}
+                    </div>
+                    <div className="faint tiny">
+                      {sn.sessionCount} sessions · {sn.setCount} sets · {sn.reason}
+                    </div>
+                  </div>
+                  <button
+                    className="btn-sm"
+                    onClick={async () => {
+                      const r = await restoreSnapshot(i);
+                      toast.show(`Merged ${r.sessions} sessions / ${r.sets} sets`);
+                      await scan();
+                    }}
+                  >
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {cloud && missingLocally.length > 0 && (
             <div className="mt">

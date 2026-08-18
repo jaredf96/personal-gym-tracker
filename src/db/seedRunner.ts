@@ -12,6 +12,7 @@ import {
 import type { ProgramMeta, Settings, WeeklyScheduleDay } from "../types";
 import { isLegacyExercise, normalizeExercise } from "./normalize";
 import { todayISODate } from "../lib/dates";
+import { takeSnapshot } from "./snapshot";
 
 export interface RepairReport {
   normalizedExercises: number;
@@ -40,6 +41,7 @@ export interface RepairReport {
  */
 export async function repairData(): Promise<RepairReport> {
   await db.open();
+  await takeSnapshot("before repair");
   const report: RepairReport = {
     normalizedExercises: 0,
     removedOrphanExercises: 0,
