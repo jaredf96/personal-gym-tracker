@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { repairData } from "../db/seedRunner";
+import { repairAndPropagate } from "../sync/supabaseSync";
 
 interface Props {
   children: ReactNode;
@@ -46,7 +46,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               className="btn-primary btn-block btn-lg"
               onClick={async () => {
                 try {
-                  const r = await repairData();
+                  const r = await repairAndPropagate();
                   alert(
                     `Repair complete.\n\nFixed ${r.normalizedExercises} legacy exercise(s), removed ${r.removedOrphanExercises} unused, closed ${r.closedStaleSessions} unfinished session(s).`
                   );

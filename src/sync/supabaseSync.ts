@@ -1,5 +1,5 @@
 import { db, BACKUP_TABLES, REFERENCE_TABLES, LOG_TABLES, type BackupTableName } from "../db/db";
-import { ensureSeeded, reseedProgramData, SEED_VERSION } from "../db/seedRunner";
+import { ensureSeeded, reseedProgramData, repairData, SEED_VERSION } from "../db/seedRunner";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import type { ProgramMeta } from "../types";
 
@@ -453,11 +453,39 @@ export async function startSync(userId: string): Promise<void> {
     }
 
     if (gen !== startGeneration) return;
+
+    // Repair AFTER the pull, not just at boot. ensureSeeded() is single-flight
+    // and already ran from main.tsx before sync existed, so its repair only
+    // touched local data — and the pull then re-imported the same legacy rows
+    // (and still-open sessions) straight back from the cloud. Running it here,
+    // with hooks live, both fixes the pulled data and propagates the fix up.
+    await repairAndPropagate();
+
+    if (gen !== startGeneration) return;
     localStorage.setItem(OWNER_KEY, userId);
     setStatus({ state: "idle", lastSyncedAt: new Date().toISOString(), message: undefined });
   } catch (e) {
     failStatus(e);
   }
+}
+
+/**
+ * Repairs legacy/stale rows and pushes the result to the cloud, so the fix
+ * survives the next pull. Deletions of dropped legacy rows are propagated by
+ * pruning; normalized rows and auto-finished sessions go up as upserts.
+ */
+export async function repairAndPropagate(): Promise<Awaited<ReturnType<typeof repairData>>> {
+  const report = await repairData();
+  const changed =
+    report.normalizedExercises > 0 ||
+    report.removedOrphanExercises > 0 ||
+    report.closedStaleSessions > 0;
+  if (!changed || !enabled || !supabase || !currentUserId) return report;
+
+  await pushTables(["exercises", "workoutSessions"]);
+  // Only exercises can be *deleted* by a repair, so that's the only table we prune.
+  await pruneCloudTables(["exercises"]);
+  return report;
 }
 
 // Stop syncing (on logout). Local cache is left intact and tagged to its owner;

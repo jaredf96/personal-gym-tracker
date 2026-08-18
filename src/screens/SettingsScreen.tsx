@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
-import { reseedProgramData, repairData, SEED_VERSION_KEY } from "../db/seedRunner";
+import { reseedProgramData, SEED_VERSION_KEY } from "../db/seedRunner";
 import { isLegacyExercise } from "../db/normalize";
 import {
   addBodyMetric,
@@ -24,6 +24,7 @@ import {
   withSyncPaused,
   reconcileAfterImport,
   reconcileAfterReseed,
+  repairAndPropagate,
   eraseEverything,
   getSyncStatus,
   type SyncState,
@@ -404,7 +405,7 @@ export default function SettingsScreen() {
           className="btn-block mt"
           onClick={async () => {
             try {
-              const r = await repairData();
+              const r = await repairAndPropagate();
               toast.show(
                 `Repaired: ${r.normalizedExercises} fixed, ${r.removedOrphanExercises} removed, ${r.closedStaleSessions} session(s) closed`
               );
