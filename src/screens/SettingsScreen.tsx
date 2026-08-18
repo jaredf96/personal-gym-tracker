@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
-import { reseedProgramData, SEED_VERSION_KEY } from "../db/seedRunner";
+import { reseedProgramData, repairData, SEED_VERSION_KEY } from "../db/seedRunner";
+import { isLegacyExercise } from "../db/normalize";
 import {
   addBodyMetric,
   deleteBodyMetric,
@@ -54,8 +55,24 @@ export default function SettingsScreen() {
   const [newPw, setNewPw] = useState("");
 
   const data = useLiveQuery(async () => {
-    const [settings, metrics] = await Promise.all([getSettings(), listBodyMetrics()]);
-    return { settings, metrics };
+    const [settings, metrics, exercises, sessions, sets] = await Promise.all([
+      getSettings(),
+      listBodyMetrics(),
+      db.exercises.toArray(),
+      db.workoutSessions.toArray(),
+      db.setEntries.count(),
+    ]);
+    return {
+      settings,
+      metrics,
+      diag: {
+        exercises: exercises.length,
+        legacyExercises: exercises.filter(isLegacyExercise).length,
+        sessions: sessions.length,
+        openSessions: sessions.filter((x) => !x.endedAt).length,
+        sets,
+      },
+    };
   }, []);
 
   // Body metric draft
@@ -63,7 +80,7 @@ export default function SettingsScreen() {
   const [waist, setWaist] = useState("");
 
   if (!data) return <ScreenSkeleton />;
-  const { settings, metrics } = data;
+  const { settings, metrics, diag } = data;
 
   async function patch(p: Partial<Settings>) {
     // Read fresh instead of spreading the render closure — two quick changes
@@ -367,6 +384,41 @@ export default function SettingsScreen() {
             if (f) onImportFile(f);
           }}
         />
+      </div>
+
+      {/* Diagnostics */}
+      <div className="card">
+        <h3 className="mb">Diagnostics</h3>
+        <div className="row wrap">
+          <Pill>{diag.exercises} exercises</Pill>
+          <Pill tone={diag.legacyExercises > 0 ? "amber" : "default"}>
+            {diag.legacyExercises} legacy
+          </Pill>
+          <Pill>{diag.sessions} sessions</Pill>
+          <Pill tone={diag.openSessions > 0 ? "amber" : "default"}>
+            {diag.openSessions} unfinished
+          </Pill>
+          <Pill>{diag.sets} sets</Pill>
+        </div>
+        <button
+          className="btn-block mt"
+          onClick={async () => {
+            try {
+              const r = await repairData();
+              toast.show(
+                `Repaired: ${r.normalizedExercises} fixed, ${r.removedOrphanExercises} removed, ${r.closedStaleSessions} session(s) closed`
+              );
+            } catch (err) {
+              toast.show(`Repair failed: ${(err as Error).message}`);
+            }
+          }}
+        >
+          Repair data
+        </button>
+        <div className="faint tiny mt">
+          Migrates old-format rows, drops unused ones, and closes workouts left open on a previous
+          day. Safe to run anytime — logged sets are never deleted.
+        </div>
       </div>
 
       {/* Danger zone */}

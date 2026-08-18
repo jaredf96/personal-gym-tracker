@@ -4,6 +4,7 @@ import type { PlanItem } from "../engine/analysis";
 import { addSetEntry, deleteSetEntry, updateSetEntry } from "../db/repo";
 import { fmtNum, fmtWeight, repRange } from "../lib/format";
 import { Pill } from "./ui";
+import { muscleLabel } from "../db/normalize";
 
 interface Props {
   item: PlanItem;
@@ -66,7 +67,7 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged,
           <div className="muted small">
             {te.targetSets} × {repRange(te.repMin, te.repMax)}
             {te.perSide ? "/side" : ""} · RIR {te.rirTarget} · rest {restLabel} ·{" "}
-            {exercise.primaryMuscles.join(" / ")}
+            {muscleLabel(exercise)}
           </div>
         </div>
         <div className="row" style={{ gap: 6 }}>

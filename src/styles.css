@@ -705,9 +705,13 @@ a {
 }
 .sheet {
   position: fixed;
-  left: 50%;
+  /* Centered with auto margins, NOT translateX(-50%): the rise-in animation
+     ends at `transform: none`, which would wipe out a transform-based centering
+     and leave the sheet hanging off the right edge. */
+  left: 0;
+  right: 0;
   bottom: 0;
-  transform: translateX(-50%);
+  margin-inline: auto;
   width: 100%;
   max-width: var(--maxw);
   background: var(--surface);

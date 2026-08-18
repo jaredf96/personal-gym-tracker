@@ -12,7 +12,9 @@ export default function HistoryScreen() {
   // Group by primary muscle for a tidy list.
   const byMuscle = new Map<string, typeof exercises>();
   for (const e of [...exercises].sort((a, b) => a.name.localeCompare(b.name))) {
-    const muscle = e.primaryMuscles[0] ?? "Other";
+    // Title-case so legacy rows ("Chest") group with current ones ("chest").
+    const raw = e.primaryMuscles?.[0] ?? "Other";
+    const muscle = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
     const list = byMuscle.get(muscle) ?? [];
     list.push(e);
     byMuscle.set(muscle, list);

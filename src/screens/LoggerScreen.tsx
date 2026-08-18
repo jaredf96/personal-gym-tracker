@@ -9,8 +9,8 @@ import {
   getNextTemplate,
   getSetsForSession,
   getSettings,
+  listExercises,
   setSessionSwap,
-  startSession,
 } from "../db/repo";
 import { getUpcomingPlan, type PlanItem } from "../engine/analysis";
 import type { Exercise, SetEntry } from "../types";
@@ -20,6 +20,9 @@ import RestTimer from "../components/RestTimer";
 import { ScreenHeader, Empty } from "../components/ui";
 import { useToast } from "../components/Toast";
 import ScreenSkeleton from "../components/Skeleton";
+import Sheet from "../components/Sheet";
+import { muscleLabel } from "../db/normalize";
+import { startWorkoutFlow } from "../lib/startWorkout";
 
 export default function LoggerScreen() {
   const { sessionId } = useParams();
@@ -40,7 +43,7 @@ export default function LoggerScreen() {
       template ? getUpcomingPlan(template, session.id, session.swaps) : Promise.resolve(null),
       getSetsForSession(session.id),
       getSettings(),
-      db.exercises.toArray(),
+      listExercises(),
     ]);
     return { session, template, plan, sets, settings, allExercises };
   }, [sessionId]);
@@ -60,8 +63,8 @@ export default function LoggerScreen() {
               className="btn-primary btn-block btn-lg mt"
               style={{ background: next.color, borderColor: next.color }}
               onClick={async () => {
-                const s = await startSession(next.id);
-                navigate(`/workout/${s.id}`);
+                const id = await startWorkoutFlow(next.id);
+                if (id) navigate(`/workout/${id}`);
               }}
             >
               Start {next.name} →
@@ -204,8 +207,8 @@ function SwapSheet({
 }) {
   const original = item.swappedFrom ?? item.exercise;
   const current = item.exercise;
-  const shares = (e: Exercise) =>
-    e.volumeMuscles.some((m) => original.volumeMuscles.includes(m));
+  const vol = (e: Exercise) => e.volumeMuscles ?? [];
+  const shares = (e: Exercise) => vol(e).some((m) => vol(original).includes(m));
   const candidates = allExercises.filter((e) => e.id !== current.id && e.id !== original.id);
   const suggested = candidates.filter(shares);
   const others = candidates.filter((e) => !shares(e));
@@ -213,15 +216,13 @@ function SwapSheet({
   const Option = ({ e }: { e: Exercise }) => (
     <button className="btn-block" style={{ justifyContent: "space-between" }} onClick={() => onPick(e.id)}>
       <span>{e.name}</span>
-      <span className="faint tiny">{e.primaryMuscles.join("/")}</span>
+      <span className="faint tiny">{muscleLabel(e)}</span>
     </button>
   );
 
   return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-        <h3 className="mb">Swap {original.name}</h3>
+    <Sheet onClose={onClose}>
+      <h3 className="mb">Swap {original.name}</h3>
         {item.swappedFrom && (
           <button className="btn-block mb" style={{ borderColor: "var(--accent)", color: "var(--accent)" }} onClick={() => onPick(null)}>
             ↩ Back to {original.name}
@@ -239,10 +240,9 @@ function SwapSheet({
             <div className="col">{others.map((e) => <Option key={e.id} e={e} />)}</div>
           </>
         )}
-        <button className="btn-ghost btn-block mt" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </>
+      <button className="btn-ghost btn-block mt" onClick={onClose}>
+        Cancel
+      </button>
+    </Sheet>
   );
 }

@@ -42,11 +42,11 @@ export function weeklyVolumeByMuscle(
     if (!ex) continue;
     // One set counts once toward each distinct primary muscle it trains, and
     // half toward secondary-credit muscles (e.g. glutes on hinges/squats).
-    for (const muscle of new Set(ex.volumeMuscles)) {
+    for (const muscle of new Set(ex.volumeMuscles ?? [])) {
       counts.set(muscle, (counts.get(muscle) ?? 0) + 1);
     }
     for (const muscle of new Set(ex.secondaryVolumeMuscles ?? [])) {
-      if (ex.volumeMuscles.includes(muscle)) continue;
+      if ((ex.volumeMuscles ?? []).includes(muscle)) continue;
       counts.set(muscle, (counts.get(muscle) ?? 0) + 0.5);
     }
   }

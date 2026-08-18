@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
-import { listTemplates, listCardioLogs, getWeeklySchedule, startSession } from "../db/repo";
+import { listTemplates, listCardioLogs, getWeeklySchedule } from "../db/repo";
+import { startWorkoutFlow } from "../lib/startWorkout";
 import { buildCalendarMonth, type CalendarDay, type DayStatus } from "../engine/schedule";
 import { ScreenHeader } from "../components/ui";
 import { useToast } from "../components/Toast";
+import Sheet from "../components/Sheet";
 import { useDateKey } from "./TodayScreen";
 import type { WorkoutSession, WorkoutTemplate } from "../types";
 
@@ -57,8 +59,8 @@ export default function CalendarScreen() {
     if (day.status === "planned" && day.template) {
       if (day.isToday) {
         if (window.confirm(`Start ${day.template.name} now?`)) {
-          const s = await startSession(day.template.id);
-          navigate(`/workout/${s.id}`);
+          const id = await startWorkoutFlow(day.template.id);
+          if (id) navigate(`/workout/${id}`);
         }
       } else {
         toast.show(`${day.template.name} planned — start it from Today when you're ready`);
@@ -118,6 +120,9 @@ export default function CalendarScreen() {
             <span className="cal-dot" style={{ background: "var(--green)" }} /> Cardio
           </span>
           <span className="row">
+            <span className="cal-dot" style={{ background: "var(--amber)" }} /> In progress
+          </span>
+          <span className="row">
             <span className="cal-dot" style={{ background: "var(--red)" }} /> Missed
           </span>
           <span className="row">
@@ -169,10 +174,8 @@ function SessionPicker({
   const byId = new Map(sessions.map((s) => [s.id, s]));
   const tById = new Map(templates.map((t) => [t.id, t]));
   return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet">
-        <h3 className="mb">{date} — two sessions</h3>
+    <Sheet onClose={onClose} maxHeight="60vh">
+      <h3 className="mb">{date} — sessions</h3>
         <div className="col">
           {sessionIds.map((id) => {
             const s = byId.get(id);
@@ -192,11 +195,10 @@ function SessionPicker({
             );
           })}
         </div>
-        <button className="btn-ghost btn-block mt" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </>
+      <button className="btn-ghost btn-block mt" onClick={onClose}>
+        Cancel
+      </button>
+    </Sheet>
   );
 }
 
@@ -209,6 +211,9 @@ function Cell({ day, onClick }: { day: CalendarDay; onClick: () => void }) {
   let borderColor = "var(--border)";
   if (day.status === "completed" && color) {
     bg = color + "33"; // ~20% alpha
+    borderColor = color;
+  } else if (day.status === "in-progress" && color) {
+    bg = color + "1f";
     borderColor = color;
   } else if (day.status === "cardio-done") {
     bg = "rgba(62,207,142,0.18)";
@@ -227,7 +232,8 @@ function Cell({ day, onClick }: { day: CalendarDay; onClick: () => void }) {
       style={{
         background: bg,
         borderColor,
-        borderStyle: day.status === "planned" ? "dashed" : "solid",
+        borderStyle:
+          day.status === "planned" || day.status === "in-progress" ? "dashed" : "solid",
       }}
       onClick={onClick}
       title={`${day.scheduleLabel} · ${day.status}`}
@@ -251,6 +257,8 @@ function statusTag(day: CalendarDay): string {
   switch (day.status) {
     case "completed":
       return abbr(day.template?.name);
+    case "in-progress":
+      return abbr(day.template?.name);
     case "planned":
       return abbr(day.template?.name);
     case "cardio-done":
@@ -265,7 +273,7 @@ function statusTag(day: CalendarDay): string {
 }
 
 function tagColor(status: DayStatus, color?: string): string {
-  if (status === "completed" && color) return color;
+  if ((status === "completed" || status === "in-progress") && color) return color;
   if (status === "planned" && color) return color;
   if (status === "cardio-done" || status === "cardio") return "var(--green)";
   if (status === "missed") return "var(--red)";

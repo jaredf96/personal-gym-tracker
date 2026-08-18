@@ -14,6 +14,7 @@ import {
   getTemplateExerciseViews,
 } from "../db/repo";
 import { db } from "../db/db";
+import { normalizeExercise } from "../db/normalize";
 import { computeSetStats, type SetStats } from "./stats";
 import { compareExercise, type ExerciseComparison, type Trend } from "./comparison";
 import { suggestProgression, type ProgressionSuggestion } from "./progression";
@@ -175,7 +176,7 @@ export async function analyzeSession(sessionId: string): Promise<SessionAnalysis
     exercises.push({
       exerciseId,
       name: exercise.name,
-      primaryMuscle: exercise.primaryMuscles[0] ?? exercise.name,
+      primaryMuscle: exercise.primaryMuscles?.[0] ?? exercise.name,
       comparison,
       suggestion,
     });
@@ -236,8 +237,9 @@ export interface ExerciseHistory {
 export async function getExerciseHistoryWithPRs(
   exerciseId: string
 ): Promise<ExerciseHistory | null> {
-  const exercise = await db.exercises.get(exerciseId);
-  if (!exercise) return null;
+  const raw = await db.exercises.get(exerciseId);
+  if (!raw) return null;
+  const exercise = normalizeExercise(raw); // legacy rows must not crash the screen
 
   const history = await getExerciseSessionHistory(exerciseId); // newest first
   const oldToNew = [...history].reverse();

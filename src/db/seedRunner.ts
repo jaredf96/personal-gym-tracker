@@ -10,6 +10,78 @@ import {
   seedProgressionRules,
 } from "./seed";
 import type { ProgramMeta, Settings, WeeklyScheduleDay } from "../types";
+import { isLegacyExercise, normalizeExercise } from "./normalize";
+import { todayISODate } from "../lib/dates";
+
+export interface RepairReport {
+  normalizedExercises: number;
+  removedOrphanExercises: number;
+  closedStaleSessions: number;
+}
+
+/**
+ * Heals data that predates the current model:
+ *  - v1 exercise rows (primaryMuscle: string, no volumeMuscles/type) are
+ *    rewritten to the current shape. Left raw they crash any screen that
+ *    iterates the library or logged exercises (blank page).
+ *  - Legacy rows with NO logged sets and not in the program are deleted;
+ *    rows WITH history are kept so past sessions stay viewable.
+ *  - Sessions left open on a previous day are auto-finished, so a forgotten
+ *    workout still lands in history and the rotation advances.
+ */
+export async function repairData(): Promise<RepairReport> {
+  await db.open();
+  const report: RepairReport = {
+    normalizedExercises: 0,
+    removedOrphanExercises: 0,
+    closedStaleSessions: 0,
+  };
+
+  await db.transaction("rw", [db.exercises, db.templateExercises, db.setEntries, db.workoutSessions], async () => {
+    const all = await db.exercises.toArray();
+    const legacy = all.filter(isLegacyExercise);
+    if (legacy.length) {
+      const programIds = new Set((await db.templateExercises.toArray()).map((t) => t.exerciseId));
+      const loggedIds = new Set((await db.setEntries.toArray()).map((s) => s.exerciseId));
+      const keep: unknown[] = [];
+      const drop: string[] = [];
+      for (const row of legacy) {
+        const id = (row as { id?: string }).id ?? "";
+        if (programIds.has(id) || loggedIds.has(id)) keep.push(normalizeExercise(row));
+        else drop.push(id);
+      }
+      if (keep.length) await db.exercises.bulkPut(keep as never[]);
+      if (drop.length) await db.exercises.bulkDelete(drop);
+      report.normalizedExercises = keep.length;
+      report.removedOrphanExercises = drop.length;
+    }
+
+    // Auto-finish sessions left open on an earlier day.
+    const today = todayISODate();
+    const stale = (await db.workoutSessions.toArray()).filter((s) => !s.endedAt && s.date < today);
+    for (const s of stale) {
+      const sets = await db.setEntries.where("sessionId").equals(s.id).toArray();
+      if (sets.length === 0) {
+        // Nothing logged — an accidental start, not a workout.
+        await db.workoutSessions.delete(s.id);
+      } else {
+        // Close it at the last logged set, so duration/history stay sane.
+        const lastAt = sets
+          .map((x) => x.createdAt)
+          .sort()
+          .slice(-1)[0];
+        await db.workoutSessions.put({
+          ...s,
+          endedAt: lastAt,
+          notes: s.notes ?? "Auto-finished (left open overnight).",
+        });
+      }
+      report.closedStaleSessions += 1;
+    }
+  });
+
+  return report;
+}
 
 export const SEED_VERSION_KEY = "gym-tracker.seedVersion";
 export { SEED_VERSION };
@@ -63,6 +135,8 @@ export function ensureSeeded(): Promise<void> {
     const storedVersion = localStorage.getItem(SEED_VERSION_KEY);
     const isUpgrade = storedVersion !== null && storedVersion !== SEED_VERSION;
     await seedReferenceData(isUpgrade);
+    // Heal legacy rows + forgotten sessions on every launch (cheap, idempotent).
+    await repairData();
     localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION);
   })().catch((err) => {
     seedPromise = null; // don't cache a failure — the next caller retries

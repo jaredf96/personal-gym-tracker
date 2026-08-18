@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import { nextTemplate } from "../engine/rotation";
 import { weeklyVolumeByMuscle, type MuscleVolume } from "../engine/volume";
+import { normalizeExercise } from "./normalize";
 
 export interface TemplateExerciseView {
   templateExercise: TemplateExercise;
@@ -35,7 +36,12 @@ export async function listTemplates(): Promise<WorkoutTemplate[]> {
 
 export async function getExercisesById(): Promise<Map<string, Exercise>> {
   const all = await db.exercises.toArray();
-  return new Map(all.map((e) => [e.id, e]));
+  return new Map(all.map((e) => [e.id, normalizeExercise(e)]));
+}
+
+/** Whole library, normalized (swap sheet, pickers). */
+export async function listExercises(): Promise<Exercise[]> {
+  return (await db.exercises.toArray()).map(normalizeExercise);
 }
 
 export async function getTemplateExerciseViews(
@@ -79,10 +85,36 @@ export async function getNextTemplate(): Promise<{
   return { template: nextTemplate(templates, lastCompleted), lastCompleted };
 }
 
-export async function startSession(templateId: string): Promise<WorkoutSession> {
-  // Reuse an existing in-progress session for the same template if present.
+/**
+ * Starts (or resumes) a workout.
+ *
+ * Only ONE session may be open at a time. Previously a different template
+ * silently created a second open session, and `getActiveSession` (newest wins)
+ * then hid the first one — a logged workout could vanish from the UI while its
+ * sets sat in the database. Now the caller must decide:
+ *   - same template  -> resume it
+ *   - different, empty -> discard the empty one and start fresh
+ *   - different, has sets -> refuse unless `force`, so the UI can prompt
+ */
+export async function startSession(
+  templateId: string,
+  opts: { force?: boolean } = {}
+): Promise<
+  | { status: "started" | "resumed"; session: WorkoutSession }
+  | { status: "blocked"; session: WorkoutSession; loggedSets: number }
+> {
   const active = await getActiveSession();
-  if (active && active.templateId === templateId) return active;
+  if (active) {
+    if (active.templateId === templateId) return { status: "resumed", session: active };
+    const loggedSets = await db.setEntries.where("sessionId").equals(active.id).count();
+    if (loggedSets > 0 && !opts.force) {
+      return { status: "blocked", session: active, loggedSets };
+    }
+    // Empty (or explicitly abandoned) — finish it rather than leaving an
+    // invisible open session behind.
+    if (loggedSets === 0) await deleteSession(active.id);
+    else await finishSession(active.id);
+  }
 
   const session: WorkoutSession = {
     id: uid("session"),
@@ -91,7 +123,7 @@ export async function startSession(templateId: string): Promise<WorkoutSession> 
     startedAt: nowISO(),
   };
   await db.workoutSessions.put(session);
-  return session;
+  return { status: "started", session };
 }
 
 // Swap a template slot to a different exercise for THIS session only (null

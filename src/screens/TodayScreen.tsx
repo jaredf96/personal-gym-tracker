@@ -8,7 +8,6 @@ import {
   getSettings,
   getWeeklySchedule,
   listTemplates,
-  startSession,
 } from "../db/repo";
 import { analyzeSession } from "../engine/analysis";
 import { describeDate, type DayDescriptor } from "../engine/schedule";
@@ -19,6 +18,7 @@ import { ScreenHeader, Pill } from "../components/ui";
 import ReadinessCard from "../components/ReadinessCard";
 import CardioCard from "../components/CardioCard";
 import ScreenSkeleton from "../components/Skeleton";
+import { startWorkoutFlow } from "../lib/startWorkout";
 import type { WorkoutTemplate } from "../types";
 
 // Feeds the split color into .card.hero (border tint + colored glow).
@@ -68,8 +68,8 @@ export default function TodayScreen() {
 
   async function start(templateId: string | undefined) {
     if (!templateId) return;
-    const s = await startSession(templateId);
-    navigate(`/workout/${s.id}`);
+    const id = await startWorkoutFlow(templateId);
+    if (id) navigate(`/workout/${id}`);
   }
 
   const dateLabel = new Date().toLocaleDateString(undefined, {

@@ -6,6 +6,7 @@ import { fmtNum, fmtWeight } from "../lib/format";
 import { relativeDay } from "../lib/dates";
 import { ScreenHeader, Empty, Pill, TrendPill } from "../components/ui";
 import ScreenSkeleton from "../components/Skeleton";
+import { muscleLabel } from "../db/normalize";
 
 export default function ExerciseHistoryScreen() {
   const { exerciseId } = useParams();
@@ -47,7 +48,7 @@ export default function ExerciseHistoryScreen() {
     <div className="screen">
       <ScreenHeader
         title={exercise.name}
-        subtitle={`${exercise.primaryMuscles.join(" / ")} · ${exercise.movementPattern}`}
+        subtitle={`${muscleLabel(exercise)} · ${exercise.movementPattern}`}
         right={
           <button className="btn-sm" onClick={() => navigate(-1)}>
             ‹ Back

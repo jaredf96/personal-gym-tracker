@@ -137,6 +137,7 @@ export function describeDate(
 
 export type DayStatus =
   | "completed"
+  | "in-progress"
   | "cardio-done"
   | "planned"
   | "missed"
@@ -181,6 +182,12 @@ export function buildCalendarMonth(
   for (const list of allDoneByDate.values()) {
     list.sort((a, b) => (a.endedAt ?? "").localeCompare(b.endedAt ?? ""));
   }
+  // Sessions still open (never finished) — these must be VISIBLE, otherwise a
+  // forgotten workout silently disappears from the app.
+  const openByDate = new Map<string, WorkoutSession>();
+  for (const s of sessions) {
+    if (!s.endedAt) openByDate.set(s.date, s);
+  }
   const cardioByDate = new Map<string, number>();
   for (const c of cardioLogs) {
     cardioByDate.set(c.date, (cardioByDate.get(c.date) ?? 0) + c.minutes);
@@ -222,9 +229,13 @@ export function buildCalendarMonth(
     let status: DayStatus;
     let template: WorkoutTemplate | null = null;
 
+    const open = openByDate.get(iso) ?? null;
     if (completed) {
       status = "completed";
       template = templatesById.get(completed.templateId) ?? null;
+    } else if (open) {
+      status = "in-progress";
+      template = templatesById.get(open.templateId) ?? null;
     } else if (cardioMin) {
       status = "cardio-done";
     } else if (type === "workout") {
@@ -259,7 +270,10 @@ export function buildCalendarMonth(
       template,
       color: template?.color ?? null,
       sessionId: completed?.id ?? null,
-      sessionIds: (allDoneByDate.get(iso) ?? []).map((s) => s.id),
+      sessionIds: [
+        ...(allDoneByDate.get(iso) ?? []).map((s) => s.id),
+        ...(open ? [open.id] : []),
+      ],
       cardioMinutes: cardioMin,
     });
   }

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import BottomNav from "./components/BottomNav";
 import { ToastProvider } from "./components/Toast";
 import AuthGate from "./auth/AuthGate";
+import ErrorBoundary from "./components/ErrorBoundary";
 import TodayScreen from "./screens/TodayScreen";
 import LoggerScreen from "./screens/LoggerScreen";
 import SummaryScreen from "./screens/SummaryScreen";
@@ -16,6 +17,7 @@ export default function App() {
     <ToastProvider>
       <AuthGate>
         <div className="app">
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<TodayScreen />} />
             <Route path="/workout" element={<LoggerScreen />} />
@@ -29,6 +31,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
           <BottomNav />
         </div>
       </AuthGate>
