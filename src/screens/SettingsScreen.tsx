@@ -19,6 +19,7 @@ import { useToast } from "../components/Toast";
 import { useAuth } from "../auth/AuthProvider";
 import { useSyncStatus } from "../sync/useSyncStatus";
 import ScreenSkeleton from "../components/Skeleton";
+import RecoveryCard from "../components/RecoveryCard";
 import {
   syncNow,
   withSyncPaused,
@@ -387,6 +388,8 @@ export default function SettingsScreen() {
         />
       </div>
 
+      <RecoveryCard />
+
       {/* Diagnostics */}
       <div className="card">
         <h3 className="mb">Diagnostics</h3>
@@ -407,7 +410,7 @@ export default function SettingsScreen() {
             try {
               const r = await repairAndPropagate();
               toast.show(
-                `Repaired: ${r.normalizedExercises} fixed, ${r.removedOrphanExercises} removed, ${r.closedStaleSessions} session(s) closed`
+                `Repaired: ${r.normalizedExercises} exercise(s) fixed, ${r.closedStaleSessions} session(s) finished`
               );
             } catch (err) {
               toast.show(`Repair failed: ${(err as Error).message}`);
@@ -417,8 +420,8 @@ export default function SettingsScreen() {
           Repair data
         </button>
         <div className="faint tiny mt">
-          Migrates old-format rows, drops unused ones, and closes workouts left open on a previous
-          day. Safe to run anytime — logged sets are never deleted.
+          Migrates old-format rows and finishes workouts left open on a previous day. Never deletes
+          anything.
         </div>
       </div>
 

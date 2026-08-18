@@ -482,10 +482,81 @@ export async function repairAndPropagate(): Promise<Awaited<ReturnType<typeof re
     report.closedStaleSessions > 0;
   if (!changed || !enabled || !supabase || !currentUserId) return report;
 
+  // Push only. Repair never deletes rows any more, so there is nothing to
+  // prune — and pruning here previously propagated local deletions of sessions
+  // whose sets simply had not been pulled yet.
   await pushTables(["exercises", "workoutSessions"]);
-  // Only exercises can be *deleted* by a repair, so that's the only table we prune.
-  await pruneCloudTables(["exercises"]);
   return report;
+}
+
+/** Every session the account knows about, local + cloud, for recovery. */
+export interface RemoteSessionRow {
+  id: string;
+  templateId: string;
+  date: string;
+  endedAt?: string;
+  inLocal: boolean;
+  cloudSetCount: number;
+}
+
+/**
+ * Reads sessions straight from the cloud and reports which are missing
+ * locally. Used by the recovery tool when workouts don't appear on the
+ * calendar — the data is often still in Supabase.
+ */
+export async function fetchCloudSessions(): Promise<RemoteSessionRow[]> {
+  if (!supabase || !currentUserId) return [];
+  const [sessRes, setRes, localIds] = await Promise.all([
+    supabase.from(REMOTE.workoutSessions).select("data").eq("user_id", currentUserId),
+    supabase.from(REMOTE.setEntries).select("data").eq("user_id", currentUserId),
+    db.workoutSessions.toCollection().primaryKeys(),
+  ]);
+  if (sessRes.error) throw sessRes.error;
+  if (setRes.error) throw setRes.error;
+
+  const localSet = new Set(localIds.map(String));
+  const setCounts = new Map<string, number>();
+  for (const r of setRes.data ?? []) {
+    const s = (r as { data: { sessionId?: string } }).data;
+    if (s?.sessionId) setCounts.set(s.sessionId, (setCounts.get(s.sessionId) ?? 0) + 1);
+  }
+
+  return (sessRes.data ?? [])
+    .map((r) => (r as { data: Record<string, unknown> }).data)
+    .map((s) => ({
+      id: String(s.id),
+      templateId: String(s.templateId ?? ""),
+      date: String(s.date ?? ""),
+      endedAt: s.endedAt ? String(s.endedAt) : undefined,
+      inLocal: localSet.has(String(s.id)),
+      cloudSetCount: setCounts.get(String(s.id)) ?? 0,
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Pulls sessions + their sets back down from the cloud (restores missing ones). */
+export async function restoreSessionsFromCloud(): Promise<number> {
+  if (!supabase || !currentUserId) return 0;
+  const [sessRes, setRes] = await Promise.all([
+    supabase.from(REMOTE.workoutSessions).select("data").eq("user_id", currentUserId),
+    supabase.from(REMOTE.setEntries).select("data").eq("user_id", currentUserId),
+  ]);
+  if (sessRes.error) throw sessRes.error;
+  if (setRes.error) throw setRes.error;
+
+  const sessions = (sessRes.data ?? []).map((r) => (r as { data: unknown }).data);
+  const sets = (setRes.data ?? []).map((r) => (r as { data: unknown }).data);
+
+  suspendCount++;
+  try {
+    await db.transaction("rw", [db.workoutSessions, db.setEntries], async () => {
+      if (sessions.length) await db.workoutSessions.bulkPut(sessions as never[]);
+      if (sets.length) await db.setEntries.bulkPut(sets as never[]);
+    });
+  } finally {
+    suspendCount--;
+  }
+  return sessions.length;
 }
 
 // Stop syncing (on logout). Local cache is left intact and tagged to its owner;

@@ -15,19 +15,28 @@ import { todayISODate } from "../lib/dates";
 
 export interface RepairReport {
   normalizedExercises: number;
-  removedOrphanExercises: number;
+  removedOrphanExercises: number; // always 0 — kept for API compatibility
   closedStaleSessions: number;
 }
 
 /**
- * Heals data that predates the current model:
+ * Heals data that predates the current model. STRICTLY NON-DESTRUCTIVE — it
+ * only ever rewrites rows, never deletes them.
+ *
+ * (History: an earlier version deleted "empty" stale sessions and unused
+ * legacy exercises. Because this runs at boot — BEFORE the first cloud pull —
+ * a session whose sets had not downloaded yet looked empty and was deleted,
+ * and the deletion then propagated to the cloud. Repair must never remove user
+ * data to fix a rendering problem.)
+ *
  *  - v1 exercise rows (primaryMuscle: string, no volumeMuscles/type) are
  *    rewritten to the current shape. Left raw they crash any screen that
- *    iterates the library or logged exercises (blank page).
- *  - Legacy rows with NO logged sets and not in the program are deleted;
- *    rows WITH history are kept so past sessions stay viewable.
- *  - Sessions left open on a previous day are auto-finished, so a forgotten
- *    workout still lands in history and the rotation advances.
+ *    iterates the library or logged exercises (blank page). Unused legacy rows
+ *    are normalized and kept; they are harmless once well-formed.
+ *  - Sessions left open on a previous day that HAVE logged sets are finished
+ *    at the last set, so a forgotten workout lands in history. Open sessions
+ *    with no sets are left untouched — they show as in-progress on the
+ *    calendar and can be discarded by hand.
  */
 export async function repairData(): Promise<RepairReport> {
   await db.open();
@@ -37,45 +46,28 @@ export async function repairData(): Promise<RepairReport> {
     closedStaleSessions: 0,
   };
 
-  await db.transaction("rw", [db.exercises, db.templateExercises, db.setEntries, db.workoutSessions], async () => {
-    const all = await db.exercises.toArray();
-    const legacy = all.filter(isLegacyExercise);
+  await db.transaction("rw", [db.exercises, db.setEntries, db.workoutSessions], async () => {
+    const legacy = (await db.exercises.toArray()).filter(isLegacyExercise);
     if (legacy.length) {
-      const programIds = new Set((await db.templateExercises.toArray()).map((t) => t.exerciseId));
-      const loggedIds = new Set((await db.setEntries.toArray()).map((s) => s.exerciseId));
-      const keep: unknown[] = [];
-      const drop: string[] = [];
-      for (const row of legacy) {
-        const id = (row as { id?: string }).id ?? "";
-        if (programIds.has(id) || loggedIds.has(id)) keep.push(normalizeExercise(row));
-        else drop.push(id);
-      }
-      if (keep.length) await db.exercises.bulkPut(keep as never[]);
-      if (drop.length) await db.exercises.bulkDelete(drop);
-      report.normalizedExercises = keep.length;
-      report.removedOrphanExercises = drop.length;
+      await db.exercises.bulkPut(legacy.map(normalizeExercise) as never[]);
+      report.normalizedExercises = legacy.length;
     }
 
-    // Auto-finish sessions left open on an earlier day.
+    // Finish sessions left open on an earlier day (only when sets exist).
     const today = todayISODate();
     const stale = (await db.workoutSessions.toArray()).filter((s) => !s.endedAt && s.date < today);
     for (const s of stale) {
       const sets = await db.setEntries.where("sessionId").equals(s.id).toArray();
-      if (sets.length === 0) {
-        // Nothing logged — an accidental start, not a workout.
-        await db.workoutSessions.delete(s.id);
-      } else {
-        // Close it at the last logged set, so duration/history stay sane.
-        const lastAt = sets
-          .map((x) => x.createdAt)
-          .sort()
-          .slice(-1)[0];
-        await db.workoutSessions.put({
-          ...s,
-          endedAt: lastAt,
-          notes: s.notes ?? "Auto-finished (left open overnight).",
-        });
-      }
+      if (sets.length === 0) continue; // never delete — the sets may not be synced yet
+      const lastAt = sets
+        .map((x) => x.createdAt)
+        .sort()
+        .slice(-1)[0];
+      await db.workoutSessions.put({
+        ...s,
+        endedAt: lastAt,
+        notes: s.notes ?? "Auto-finished (left open overnight).",
+      });
       report.closedStaleSessions += 1;
     }
   });
