@@ -5,7 +5,7 @@ import type {
   WorkoutSession,
   WorkoutTemplate,
 } from "../types";
-import { nextTemplate, sortedBySequence } from "./rotation";
+import { nextTemplate, sortedBySequence, type RotationOptions } from "./rotation";
 import { todayISODate } from "../lib/dates";
 
 // Hybrid scheduling: a fixed weekly *rhythm* (which weekdays are lift / cardio /
@@ -55,7 +55,8 @@ export function projectLifts(
   days: number,
   schedule: WeeklyScheduleDay[],
   templates: WorkoutTemplate[],
-  sessions: WorkoutSession[]
+  sessions: WorkoutSession[],
+  rotationOpts: RotationOptions = {}
 ): Map<string, WorkoutTemplate> {
   const ordered = sortedBySequence(templates);
   const out = new Map<string, WorkoutTemplate>();
@@ -63,7 +64,7 @@ export function projectLifts(
 
   const doneByDate = completedByDate(sessions);
   const last = mostRecentCompleted(sessions);
-  const next = nextTemplate(templates, last);
+  const next = nextTemplate(templates, last, { now: fromDate, ...rotationOpts });
   let pointer = next ? ordered.findIndex((t) => t.id === next.id) : 0;
 
   for (let i = 0; i < days; i++) {

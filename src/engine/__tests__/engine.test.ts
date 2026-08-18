@@ -3,7 +3,7 @@ import { computeSetStats, est1rm, hasPainNote } from "../stats";
 import { compareExercise } from "../comparison";
 import { suggestProgression } from "../progression";
 import { weeklyVolumeByMuscle } from "../volume";
-import { nextTemplate, upcomingTemplates } from "../rotation";
+import { nextTemplate, upcomingTemplates, resolveRotation } from "../rotation";
 import { projectLifts, buildCalendarMonth } from "../schedule";
 import { detectFatigue } from "../flags";
 import type {
@@ -290,15 +290,51 @@ describe("weeklyVolumeByMuscle", () => {
 // ---------------------------------------------------------------------------
 
 describe("rotation", () => {
+  // "now" is injected so the recency rule is deterministic.
+  const soon = { now: new Date("2026-06-30T12:00:00") }; // 1 day after the session
+
   it("advances from the last completed template and wraps", () => {
-    expect(nextTemplate(TEMPLATES, makeSession("x", "2026-06-29", "lower-b"))?.id).toBe("upper-a");
-    expect(nextTemplate(TEMPLATES, makeSession("x", "2026-06-29", "upper-a"))?.id).toBe("lower-a");
-    expect(nextTemplate(TEMPLATES, null)?.id).toBe("upper-a");
+    expect(nextTemplate(TEMPLATES, makeSession("x", "2026-06-29", "lower-b"), soon)?.id).toBe("upper-a");
+    expect(nextTemplate(TEMPLATES, makeSession("x", "2026-06-29", "upper-a"), soon)?.id).toBe("lower-a");
+    expect(nextTemplate(TEMPLATES, null, soon)?.id).toBe("upper-a");
   });
 
   it("upcomingTemplates previews the wrap-around order", () => {
-    const up = upcomingTemplates(TEMPLATES, makeSession("x", "2026-06-29", "upper-b"), 4);
+    const up = upcomingTemplates(TEMPLATES, makeSession("x", "2026-06-29", "upper-b"), 4, soon);
     expect(up.map((t) => t.id)).toEqual(["lower-b", "upper-a", "lower-a", "upper-b"]);
+  });
+
+  it("keeps the current position through a few missed days", () => {
+    // Trained Upper A five days ago -> still mid-cycle, next is Lower A.
+    const r = resolveRotation(TEMPLATES, makeSession("x", "2026-06-29", "upper-a"), {
+      now: new Date("2026-07-04T12:00:00"),
+    });
+    expect(r.template?.id).toBe("lower-a");
+    expect(r.reason).toBe("advance");
+    expect(r.daysSinceLast).toBe(5);
+  });
+
+  it("restarts the cycle after more than a week off", () => {
+    const r = resolveRotation(TEMPLATES, makeSession("x", "2026-06-29", "upper-a"), {
+      now: new Date("2026-07-10T12:00:00"), // 11 days later
+    });
+    expect(r.template?.id).toBe("upper-a"); // back to the top of the cycle
+    expect(r.reason).toBe("reset");
+    expect(r.daysSinceLast).toBe(11);
+  });
+
+  it("treats exactly one week off as still in-cycle", () => {
+    const r = resolveRotation(TEMPLATES, makeSession("x", "2026-06-29", "upper-a"), {
+      now: new Date("2026-07-06T12:00:00"), // 7 days
+    });
+    expect(r.reason).toBe("advance");
+    expect(r.template?.id).toBe("lower-a");
+  });
+
+  it("restarts when the last session used a template that no longer exists", () => {
+    const r = resolveRotation(TEMPLATES, makeSession("x", "2026-06-29", "retired-split"), soon);
+    expect(r.reason).toBe("reset");
+    expect(r.template?.id).toBe("upper-a");
   });
 });
 

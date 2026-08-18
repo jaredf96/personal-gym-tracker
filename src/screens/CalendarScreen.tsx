@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link, useNavigate } from "react-router-dom";
 import { db } from "../db/db";
-import { listTemplates, listCardioLogs, getWeeklySchedule } from "../db/repo";
+import {
+  listTemplates,
+  listCardioLogs,
+  getWeeklySchedule,
+  createBackdatedSession,
+} from "../db/repo";
 import { startWorkoutFlow } from "../lib/startWorkout";
 import { buildCalendarMonth, type CalendarDay, type DayStatus } from "../engine/schedule";
 import { ScreenHeader } from "../components/ui";
@@ -21,6 +26,8 @@ export default function CalendarScreen() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-11
   const [picker, setPicker] = useState<{ date: string; sessionIds: string[] } | null>(null);
+  // Past day tapped with nothing logged -> offer to backfill a workout.
+  const [backfill, setBackfill] = useState<string | null>(null);
 
   const data = useLiveQuery(async () => {
     const [schedule, templates, sessions, cardio] = await Promise.all([
@@ -56,15 +63,19 @@ export default function CalendarScreen() {
       navigate(`/summary/${day.sessionIds[0]}`);
       return;
     }
-    if (day.status === "planned" && day.template) {
-      if (day.isToday) {
-        if (window.confirm(`Start ${day.template.name} now?`)) {
-          const id = await startWorkoutFlow(day.template.id);
-          if (id) navigate(`/workout/${id}`);
-        }
-      } else {
-        toast.show(`${day.template.name} planned — start it from Today when you're ready`);
+    if (day.status === "planned" && day.template && day.isToday) {
+      if (window.confirm(`Start ${day.template.name} now?`)) {
+        const id = await startWorkoutFlow(day.template.id);
+        if (id) navigate(`/workout/${id}`);
       }
+      return;
+    }
+    if (day.isPast) {
+      setBackfill(day.date); // log a workout you did but never entered
+      return;
+    }
+    if (day.status === "planned" && day.template) {
+      toast.show(`${day.template.name} planned — start it from Today when you're ready`);
     }
   }
 
@@ -130,13 +141,43 @@ export default function CalendarScreen() {
           </span>
         </div>
         <div className="faint tiny mt">
-          Tap a completed day for its session · tap today's planned lift to start it.
+          Tap a completed day for its session · tap today's lift to start it · tap a past day to
+          log a workout you forgot to enter.
         </div>
       </div>
 
       <Link to="/exercises" className="btn btn-block">
         Exercise history & PRs →
       </Link>
+
+      {backfill && data && (
+        <Sheet onClose={() => setBackfill(null)} maxHeight="60vh">
+          <h3 className="mb">Log a workout for {backfill}</h3>
+          <p className="small muted" style={{ marginTop: 0 }}>
+            Pick the split you trained. You'll log the sets normally and it will be saved on that
+            date.
+          </p>
+          <div className="col">
+            {data.templates.map((t) => (
+              <button
+                key={t.id}
+                className="btn-block"
+                style={{ borderColor: t.color, color: t.color }}
+                onClick={async () => {
+                  const s = await createBackdatedSession(t.id, backfill);
+                  setBackfill(null);
+                  navigate(`/workout/${s.id}`);
+                }}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+          <button className="btn-ghost btn-block mt" onClick={() => setBackfill(null)}>
+            Cancel
+          </button>
+        </Sheet>
+      )}
 
       {picker && data && (
         <SessionPicker
@@ -221,7 +262,7 @@ function Cell({ day, onClick }: { day: CalendarDay; onClick: () => void }) {
   }
 
   const clickable =
-    day.sessionIds.length > 0 || (day.status === "planned" && !!day.template);
+    day.sessionIds.length > 0 || (day.status === "planned" && !!day.template) || day.isPast;
   const tag = statusTag(day);
 
   return (

@@ -43,6 +43,8 @@ export function useDateKey(): string {
 export default function TodayScreen() {
   const navigate = useNavigate();
   const dateKey = useDateKey();
+  // Which split the Start button will launch. Null = follow the rotation.
+  const [picked, setPicked] = useState<string | null>(null);
 
   const data = useLiveQuery(async () => {
     const [templates, schedule, sessions, active, settings, nextInfo] = await Promise.all([
@@ -60,11 +62,27 @@ export default function TodayScreen() {
       ? await analyzeSession(nextInfo.lastCompleted.id)
       : null;
     const deload = await getDeloadAssessment();
-    return { templates, today, tomorrow, nextLift: nextInfo.template, active, settings, lastSummary, deload };
+    return {
+      templates,
+      today,
+      tomorrow,
+      nextLift: nextInfo.template,
+      rotationReason: nextInfo.reason,
+      daysSinceLast: nextInfo.daysSinceLast,
+      active,
+      settings,
+      lastSummary,
+      deload,
+    };
   }, [dateKey]);
 
   if (!data) return <ScreenSkeleton />;
-  const { templates, today, tomorrow, nextLift, active, settings, lastSummary, deload } = data;
+  const { templates, today, tomorrow, nextLift, rotationReason, daysSinceLast, active, settings, lastSummary, deload } = data;
+
+  // The plan's suggestion, unless the user has picked a different split.
+  const planned = today.plannedTemplate ?? nextLift;
+  const selected = templates.find((t) => t.id === picked) ?? planned;
+  const isOffPlan = !!selected && !!planned && selected.id !== planned.id;
 
   async function start(templateId: string | undefined) {
     if (!templateId) return;
@@ -102,7 +120,14 @@ export default function TodayScreen() {
           onResume={() => navigate(`/workout/${active.id}`)}
         />
       ) : (
-        <PlanCard today={today} nextLift={nextLift} onStart={start} />
+        <PlanCard
+          today={today}
+          selected={selected}
+          isOffPlan={isOffPlan}
+          rotationReason={rotationReason}
+          daysSinceLast={daysSinceLast}
+          onStart={start}
+        />
       )}
 
       {/* Tomorrow preview */}
@@ -118,21 +143,36 @@ export default function TodayScreen() {
         <CardioCard suggestedMinutes={today.cardioMinMinutes} />
       )}
 
-      {/* Start any specific day */}
+      {/* Pick a different split — selects it, doesn't start it */}
       {!active && (
         <div className="card">
-          <h3 className="mb">Or start a specific workout</h3>
+          <h3 className="mb">Choose a workout</h3>
           <div className="row wrap" style={{ gap: 8 }}>
-            {templates.map((t) => (
-              <button
-                key={t.id}
-                className="btn-sm grow"
-                style={{ minWidth: 110, borderColor: t.color, color: t.color }}
-                onClick={() => start(t.id)}
-              >
-                {t.name}
-              </button>
-            ))}
+            {templates.map((t) => {
+              const isSel = selected?.id === t.id;
+              return (
+                <button
+                  key={t.id}
+                  className="btn-sm grow"
+                  aria-pressed={isSel}
+                  style={{
+                    minWidth: 110,
+                    borderColor: t.color,
+                    color: isSel ? "#061018" : t.color,
+                    background: isSel ? t.color : "transparent",
+                    fontWeight: isSel ? 700 : 500,
+                  }}
+                  onClick={() => setPicked(t.id === planned?.id ? null : t.id)}
+                >
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
+          <div className="faint tiny mt">
+            {isOffPlan
+              ? `Selected ${selected?.name} instead of ${planned?.name}. Tap Start above when you're ready.`
+              : "Tap a split to switch, then press Start above."}
           </div>
         </div>
       )}
@@ -163,13 +203,23 @@ export default function TodayScreen() {
 
 function PlanCard({
   today,
-  nextLift,
+  selected,
+  isOffPlan,
+  rotationReason,
+  daysSinceLast,
   onStart,
 }: {
   today: DayDescriptor;
-  nextLift: WorkoutTemplate | null;
+  selected: WorkoutTemplate | null;
+  isOffPlan: boolean;
+  rotationReason: string;
+  daysSinceLast: number | null;
   onStart: (id: string | undefined) => void;
 }) {
+  const restartNote =
+    rotationReason === "reset" && daysSinceLast != null
+      ? `No training logged for ${daysSinceLast} days — restarting the cycle.`
+      : null;
   // Already trained today.
   if (today.completed && today.completedTemplate) {
     const t = today.completedTemplate;
@@ -184,11 +234,15 @@ function PlanCard({
 
   // Scheduled workout day.
   if (today.isWorkoutDay) {
-    const t = today.plannedTemplate ?? nextLift;
+    const t = selected;
     return (
       <div className="card hero" style={heroStyle(t?.color)}>
-        <div className="muted small">Today — workout</div>
+        <div className="row between">
+          <div className="muted small">Today — workout</div>
+          {isOffPlan && <Pill tone="amber">off plan</Pill>}
+        </div>
         <h2 style={{ color: t?.color }}>{t?.name ?? "Workout"}</h2>
+        {restartNote && <div className="faint tiny mt">{restartNote}</div>}
         <button
           className="btn-primary btn-block btn-lg mt"
           style={t ? { background: t.color, borderColor: t.color } : undefined}
@@ -213,9 +267,13 @@ function PlanCard({
             }`
           : "No lifting scheduled — walking / mobility only."}
       </div>
-      {nextLift && (
-        <button className="btn btn-block mt" onClick={() => onStart(nextLift.id)} style={{ borderColor: nextLift.color, color: nextLift.color }}>
-          Lift anyway — start {nextLift.name}
+      {selected && (
+        <button
+          className="btn btn-block mt"
+          onClick={() => onStart(selected.id)}
+          style={{ borderColor: selected.color, color: selected.color }}
+        >
+          Lift anyway — start {selected.name}
         </button>
       )}
     </div>

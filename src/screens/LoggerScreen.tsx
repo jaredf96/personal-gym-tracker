@@ -82,6 +82,7 @@ export default function LoggerScreen() {
 
   const { session, plan, sets, settings, allExercises } = data;
   const isEditing = !!session.endedAt;
+  const isBackdated = session.date !== new Date().toISOString().slice(0, 10);
 
   // Group logged sets by exercise.
   const byExercise = new Map<string, SetEntry[]>();
@@ -135,6 +136,17 @@ export default function LoggerScreen() {
         }
       />
 
+      {isBackdated && (
+        <div className="card" style={{ borderColor: "var(--amber)" }}>
+          <div className="row" style={{ gap: 8 }}>
+            <span>🗓️</span>
+            <div className="small">
+              Logging for <strong>{session.date}</strong> — this will be saved on that date.
+            </div>
+          </div>
+        </div>
+      )}
+
       {plan.items.map((item) => (
         <ExerciseCard
           key={item.templateExercise.id}
@@ -142,6 +154,7 @@ export default function LoggerScreen() {
           sets={byExercise.get(item.exercise.id) ?? []}
           unit={settings.unit}
           sessionId={session.id}
+          sessionDate={session.date}
           onSetLogged={onSetLogged}
           onRequestSwap={() => setSwapTarget(item)}
         />

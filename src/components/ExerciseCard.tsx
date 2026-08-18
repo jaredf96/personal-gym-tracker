@@ -11,11 +11,13 @@ interface Props {
   sets: SetEntry[]; // logged sets for this exercise in this session
   unit: Unit;
   sessionId: string;
+  /** The session's date (YYYY-MM-DD) — past dates get backdated timestamps. */
+  sessionDate: string;
   onSetLogged: (restSeconds: number) => void;
   onRequestSwap?: () => void;
 }
 
-export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged, onRequestSwap }: Props) {
+export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate, onSetLogged, onRequestSwap }: Props) {
   const { templateExercise: te, exercise, previousStats, suggestion } = item;
 
   const initialWeight =
@@ -38,7 +40,14 @@ export default function ExerciseCard({ item, sets, unit, sessionId, onSetLogged,
     if (!Number.isFinite(r) || r <= 0) return;
     const w = weight === "" ? 0 : parseFloat(weight);
     const rirN = parseInt(rir, 10);
+    // Backdated session: stamp sets inside that day so ordering and
+    // "previous session" comparisons stay truthful.
+    const backdated =
+      sessionDate !== new Date().toISOString().slice(0, 10)
+        ? new Date(`${sessionDate}T12:00:00.000Z`).getTime() + sets.length * 120_000
+        : null;
     await addSetEntry({
+      createdAt: backdated ? new Date(backdated).toISOString() : undefined,
       sessionId,
       exerciseId: exercise.id,
       setNumber: sets.length + 1,

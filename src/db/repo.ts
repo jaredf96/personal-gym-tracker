@@ -12,7 +12,7 @@ import type {
   WorkoutSession,
   WorkoutTemplate,
 } from "../types";
-import { nextTemplate } from "../engine/rotation";
+import { resolveRotation, type RotationResult } from "../engine/rotation";
 import { weeklyVolumeByMuscle, type MuscleVolume } from "../engine/volume";
 import { normalizeExercise } from "./normalize";
 
@@ -74,15 +74,39 @@ export async function getLastCompletedSession(): Promise<WorkoutSession | null> 
   return done[0] ?? null;
 }
 
-export async function getNextTemplate(): Promise<{
-  template: WorkoutTemplate | null;
-  lastCompleted: WorkoutSession | null;
-}> {
+export async function getNextTemplate(): Promise<
+  RotationResult & { lastCompleted: WorkoutSession | null }
+> {
   const [templates, lastCompleted] = await Promise.all([
     listTemplates(),
     getLastCompletedSession(),
   ]);
-  return { template: nextTemplate(templates, lastCompleted), lastCompleted };
+  return { ...resolveRotation(templates, lastCompleted), lastCompleted };
+}
+
+/**
+ * Creates a session on a PAST date so a workout done away from the phone can
+ * be entered afterwards. Timestamps sit inside that day, not now, so history
+ * ordering and "previous session" comparisons stay correct.
+ */
+export async function createBackdatedSession(
+  templateId: string,
+  date: string
+): Promise<WorkoutSession> {
+  const existingOpen = await db.workoutSessions
+    .filter((s) => !s.endedAt && s.date === date && s.templateId === templateId)
+    .toArray();
+  if (existingOpen[0]) return existingOpen[0];
+
+  const session: WorkoutSession = {
+    id: uid("session"),
+    templateId,
+    date,
+    startedAt: `${date}T12:00:00.000Z`,
+    notes: "Logged after the fact.",
+  };
+  await db.workoutSessions.put(session);
+  return session;
 }
 
 /**
@@ -144,7 +168,15 @@ export async function setSessionSwap(
 export async function finishSession(sessionId: string, notes?: string): Promise<void> {
   const session = await db.workoutSessions.get(sessionId);
   if (!session) return;
-  await db.workoutSessions.put({ ...session, endedAt: nowISO(), notes: notes ?? session.notes });
+  // A backdated session must not be stamped with today's time — anchor it to
+  // its own date (last logged set, or an hour after it started).
+  let endedAt = nowISO();
+  if (session.date !== todayISODate()) {
+    const sets = await db.setEntries.where("sessionId").equals(sessionId).toArray();
+    const lastSet = sets.map((s) => s.createdAt).sort().slice(-1)[0];
+    endedAt = lastSet ?? `${session.date}T13:00:00.000Z`;
+  }
+  await db.workoutSessions.put({ ...session, endedAt, notes: notes ?? session.notes });
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
