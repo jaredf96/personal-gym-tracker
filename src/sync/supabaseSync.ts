@@ -2,6 +2,12 @@ import { db, BACKUP_TABLES, REFERENCE_TABLES, LOG_TABLES, type BackupTableName }
 import { ensureSeeded, reseedProgramData, repairData, SEED_VERSION } from "../db/seedRunner";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { takeSnapshot } from "../db/snapshot";
+import {
+  addTombstone,
+  clearTombstone,
+  pruneTombstones,
+  tombstonedIds,
+} from "../db/tombstones";
 import type { ProgramMeta } from "../types";
 
 // ===========================================================================
@@ -178,15 +184,27 @@ function onLocalWrite(t: BackupTableName, primKey: unknown) {
 }
 
 function onLocalDelete(t: BackupTableName, primKey: unknown) {
-  if (!enabled || isSuspended() || !supabase || !currentUserId) return;
-  noteMutation(t, primKey);
   const id = String(primKey);
+  // Record the deletion FIRST, unconditionally. Previously this returned early
+  // while sync was suspended (during a pull/repair/snapshot) and the delete was
+  // lost with no trace — the cloud kept the row and the next additive pull
+  // brought it back.
+  addTombstone(t, id);
+  if (!enabled || isSuspended() || !supabase || !currentUserId) {
+    scheduleFlush(); // retried once sync is live again
+    return;
+  }
+  noteMutation(t, primKey);
   void supabase
     .from(REMOTE[t])
     .delete()
     .eq("user_id", currentUserId)
     .eq("id", id)
     .then(({ error }) => {
+      if (!error) {
+        clearTombstone(t, id);
+        return;
+      }
       if (error) {
         // Queue for retry instead of losing the delete (it would otherwise be
         // resurrected by the next pull).
@@ -224,8 +242,30 @@ async function flushDirty() {
   }
 }
 
+// Re-issue deletes for anything tombstoned that the cloud still holds, then
+// forget the tombstone once the cloud no longer returns it.
+async function reconcileTombstones() {
+  if (!supabase || !currentUserId) return;
+  pruneTombstones();
+  for (const t of BACKUP_TABLES) {
+    const ids = [...tombstonedIds(t)];
+    if (ids.length === 0) continue;
+    for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
+      const chunk = ids.slice(i, i + DELETE_CHUNK);
+      const { error } = await supabase
+        .from(REMOTE[t])
+        .delete()
+        .eq("user_id", currentUserId)
+        .in("id", chunk);
+      if (error) throw error;
+      chunk.forEach((id) => clearTombstone(t, id));
+    }
+  }
+}
+
 async function retryPendingDeletes() {
   if (!supabase || !currentUserId) return;
+  await reconcileTombstones();
   for (const [t, ids] of [...pendingDeletes]) {
     const list = [...ids];
     for (let i = 0; i < list.length; i += DELETE_CHUNK) {
@@ -271,7 +311,9 @@ async function upsertPayload(t: BackupTableName, rows: unknown[]) {
 // deletions — the delete path owns those, so they're skipped here.
 async function upsertRows(t: BackupTableName, ids: string[]) {
   if (!supabase || !currentUserId || ids.length === 0) return;
-  const rows = (await db.table(t).bulkGet(ids)).filter((r) => r !== undefined);
+  const deleted = tombstonedIds(t);
+  const live = ids.filter((id) => !deleted.has(id));
+  const rows = (await db.table(t).bulkGet(live)).filter((r) => r !== undefined);
   await upsertPayload(t, rows);
 }
 
@@ -330,9 +372,11 @@ async function pullTables(tables: readonly BackupTableName[]) {
         // linger locally until deleted here — is far cheaper than losing data.
         void cloudIds;
         void localIds;
-        const toPut = cloudRows.filter(
-          (r) => !touchedSincePull(t, String((r as Record<string, unknown>)[kf]))
-        );
+        const deleted = tombstonedIds(t);
+        const toPut = cloudRows.filter((r) => {
+          const id = String((r as Record<string, unknown>)[kf]);
+          return !touchedSincePull(t, id) && !deleted.has(id);
+        });
 
         if (toPut.length) await table.bulkPut(toPut as never[]);
       }
@@ -427,6 +471,8 @@ export async function startSync(userId: string): Promise<void> {
     await ensureSeeded();
     // Safety net: stash local logs before any cloud reconcile touches them.
     await takeSnapshot("before sync reconcile");
+    // Push any deletions that were dropped while offline/suspended.
+    await reconcileTombstones();
     if (gen !== startGeneration) return;
 
     // A different user's local cache must never leak across accounts.
@@ -529,8 +575,10 @@ export async function fetchCloudSessions(): Promise<RemoteSessionRow[]> {
     if (s?.sessionId) setCounts.set(s.sessionId, (setCounts.get(s.sessionId) ?? 0) + 1);
   }
 
+  const deletedSessions = tombstonedIds("workoutSessions");
   return (sessRes.data ?? [])
     .map((r) => (r as { data: Record<string, unknown> }).data)
+    .filter((s) => !deletedSessions.has(String(s.id)))
     .map((s) => ({
       id: String(s.id),
       templateId: String(s.templateId ?? ""),
@@ -552,8 +600,14 @@ export async function restoreSessionsFromCloud(): Promise<number> {
   if (sessRes.error) throw sessRes.error;
   if (setRes.error) throw setRes.error;
 
-  const sessions = (sessRes.data ?? []).map((r) => (r as { data: unknown }).data);
-  const sets = (setRes.data ?? []).map((r) => (r as { data: unknown }).data);
+  const deletedSessions = tombstonedIds("workoutSessions");
+  const deletedSets = tombstonedIds("setEntries");
+  const sessions = (sessRes.data ?? [])
+    .map((r) => (r as { data: { id?: string } }).data)
+    .filter((s) => !deletedSessions.has(String(s?.id)));
+  const sets = (setRes.data ?? [])
+    .map((r) => (r as { data: { id?: string } }).data)
+    .filter((s) => !deletedSets.has(String(s?.id)));
 
   suspendCount++;
   try {

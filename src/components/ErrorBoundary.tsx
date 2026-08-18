@@ -48,7 +48,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                 try {
                   const r = await repairAndPropagate();
                   alert(
-                    `Repair complete.\n\nFixed ${r.normalizedExercises} legacy exercise(s), removed ${r.removedOrphanExercises} unused, closed ${r.closedStaleSessions} unfinished session(s).`
+                    `Repair complete.\n\nFixed ${r.normalizedExercises} legacy exercise(s), finished ${r.closedStaleSessions} unfinished session(s). Nothing was deleted.`
                   );
                 } catch (e) {
                   alert(`Repair failed: ${(e as Error).message}`);
