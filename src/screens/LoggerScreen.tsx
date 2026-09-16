@@ -117,6 +117,23 @@ export default function LoggerScreen() {
     navigate(`/summary/${session.id}`);
   }
 
+  async function selectVariant(item: PlanItem, exerciseId: string) {
+    const target = item.variants.find((v) => v.id === exerciseId);
+    const logged = byExercise.get(item.exercise.id)?.length ?? 0;
+    if (
+      logged > 0 &&
+      !window.confirm(
+        `You've logged ${plural(logged, "set")} of ${item.exercise.name}. Switch this slot to ${
+          target?.name ?? "the other exercise"
+        }? Those sets stay in this workout.`
+      )
+    ) {
+      return;
+    }
+    const original = item.swappedFrom ?? item.exercise;
+    await setSessionSwap(session.id, item.templateExercise.id, exerciseId === original.id ? null : exerciseId);
+  }
+
   async function discard() {
     const ok = window.confirm("Discard this workout and all its sets? This cannot be undone.");
     if (!ok) return;
@@ -150,7 +167,10 @@ export default function LoggerScreen() {
 
       {plan.items.map((item) => (
         <ExerciseCard
-          key={item.templateExercise.id}
+          // Keyed by the effective exercise too: switching a slot remounts the
+          // card, so the weight box refills from the new exercise's own history
+          // instead of keeping the previous one's number.
+          key={`${item.templateExercise.id}:${item.exercise.id}`}
           item={item}
           sets={byExercise.get(item.exercise.id) ?? []}
           unit={settings.unit}
@@ -158,6 +178,7 @@ export default function LoggerScreen() {
           sessionDate={session.date}
           onSetLogged={onSetLogged}
           onRequestSwap={() => setSwapTarget(item)}
+          onSelectVariant={(exerciseId) => void selectVariant(item, exerciseId)}
         />
       ))}
 

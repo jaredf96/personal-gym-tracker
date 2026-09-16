@@ -16,10 +16,13 @@ interface Props {
   sessionDate: string;
   onSetLogged: (restSeconds: number) => void;
   onRequestSwap?: () => void;
+  /** Switch the slot to one of its declared variants (item.variants). */
+  onSelectVariant?: (exerciseId: string) => void;
 }
 
-export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate, onSetLogged, onRequestSwap }: Props) {
+export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate, onSetLogged, onRequestSwap, onSelectVariant }: Props) {
   const { templateExercise: te, exercise, previousStats, suggestion } = item;
+  const isVariant = item.variants.some((v) => v.id === exercise.id);
 
   const initialWeight =
     sets.length > 0
@@ -92,7 +95,33 @@ export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate,
         </div>
       </div>
 
-      {item.swappedFrom && (
+      {/* Either/or slot (e.g. Pec Deck | Cable Fly): each keeps its own history. */}
+      {item.variants.length > 1 && onSelectVariant && (
+        <div className="row mt" style={{ gap: 6 }}>
+          {item.variants.map((v) => {
+            const active = v.id === exercise.id;
+            return (
+              <button
+                key={v.id}
+                className="btn-sm grow"
+                aria-pressed={active}
+                style={{
+                  borderColor: active ? "var(--accent)" : "var(--border)",
+                  color: active ? "var(--accent)" : "var(--text-faint)",
+                  fontWeight: active ? 600 : 400,
+                }}
+                onClick={() => {
+                  if (!active) onSelectVariant(v.id);
+                }}
+              >
+                {v.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {item.swappedFrom && !isVariant && (
         <div className="mt">
           <Pill tone="accent">⇄ swapped in — was {item.swappedFrom.name}</Pill>
         </div>

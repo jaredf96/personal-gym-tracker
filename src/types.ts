@@ -68,6 +68,10 @@ export interface TemplateExercise {
   exerciseType: ExerciseType;
   isMainLift: boolean;
   notes?: string;
+  // Other exercises that can fill this slot (e.g. Pec Deck <-> Cable Fly). Each
+  // keeps its own history; choosing one is a per-session swap that the next
+  // session of this workout carries forward.
+  alternativeExerciseIds?: string[];
 }
 
 // ---------------------------------------------------------------------------

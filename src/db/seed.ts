@@ -120,7 +120,7 @@ export const seedExercises: Exercise[] = [
   },
   {
     "id": "pec-deck-or-cable-fly",
-    "name": "Pec Deck or Cable Fly",
+    "name": "Pec Deck",
     "type": "isolation",
     "primaryMuscles": [
       "chest"
@@ -539,7 +539,7 @@ export const seedExercises: Exercise[] = [
   },
   {
     "id": "cable-fly-or-pec-deck",
-    "name": "Cable Fly or Pec Deck",
+    "name": "Cable Fly",
     "type": "isolation",
     "primaryMuscles": [
       "chest"
@@ -936,7 +936,10 @@ export const seedTemplateExercises: TemplateExercise[] = [
     "progressionRule": "Rep Progression",
     "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": undefined
+    "notes": undefined,
+    "alternativeExerciseIds": [
+      "cable-fly-or-pec-deck"
+    ]
   },
   {
     "id": "upper-a:6",
@@ -1259,7 +1262,10 @@ export const seedTemplateExercises: TemplateExercise[] = [
     "progressionRule": "Rep Progression",
     "exerciseType": "isolation",
     "isMainLift": false,
-    "notes": undefined
+    "notes": undefined,
+    "alternativeExerciseIds": [
+      "pec-deck-or-cable-fly"
+    ]
   },
   {
     "id": "upper-b:6",
@@ -1636,7 +1642,7 @@ export const seedWeeklySchedule: WeeklyScheduleDay[] = [
 export const seedProgramMeta: ProgramMeta = {
   "id": "program",
   "name": "Max Productive Upper/Lower Split",
-  "version": "2026-06-26-rev2",
+  "version": "2026-09-16-rev3",
   "seedVersion": "v2-maxvol-2026-06-26",
   "experienceLevel": "advanced",
   "goal": "hypertrophy_with_strength",

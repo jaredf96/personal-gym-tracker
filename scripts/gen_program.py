@@ -152,7 +152,8 @@ def main():
         )
         for ex in w["exercises"]:
             name = ex["name"]
-            eid = slug(name)
+            # An explicit id keeps logged history attached when a name changes.
+            eid = ex.get("id") or slug(name)
             rmin, rmax, per_side = parse_reps(ex["repRange"])
             rest = ex["restSeconds"]
             ex_type = ex["type"]
@@ -182,29 +183,42 @@ def main():
                     "note": ex.get("note"),
                 }
 
-            template_exercises.append(
-                {
-                    "id": f"{tid}:{ex['order']}",
-                    "templateId": tid,
-                    "exerciseId": eid,
-                    "order": ex["order"],
-                    "targetSets": ex["sets"],
-                    "repMin": rmin,
-                    "repMax": rmax,
-                    "perSide": per_side,
-                    "restMin": rest[0],
-                    "restMax": rest[1],
-                    "rirTarget": ex["rir"],
-                    "warmupSets": ex.get("warmupSets", 0),
-                    "countsTowardVolume": ex.get("countsTowardVolume", True),
-                    "progressionRule": rule,
-                    "exerciseType": ex_type,
-                    "isMainLift": ex["order"] == 1,
-                    "notes": ex.get("note"),
-                }
-            )
+            slot = {
+                "id": f"{tid}:{ex['order']}",
+                "templateId": tid,
+                "exerciseId": eid,
+                "order": ex["order"],
+                "targetSets": ex["sets"],
+                "repMin": rmin,
+                "repMax": rmax,
+                "perSide": per_side,
+                "restMin": rest[0],
+                "restMax": rest[1],
+                "rirTarget": ex["rir"],
+                "warmupSets": ex.get("warmupSets", 0),
+                "countsTowardVolume": ex.get("countsTowardVolume", True),
+                "progressionRule": rule,
+                "exerciseType": ex_type,
+                "isMainLift": ex["order"] == 1,
+                "notes": ex.get("note"),
+            }
+            if ex.get("alternatives"):
+                slot["alternatives"] = ex["alternatives"]  # names, resolved below
+            template_exercises.append(slot)
 
     exercises = list(exercises_by_id.values())
+
+    # Slot alternatives name exercises that may be defined in a later workout, so
+    # resolve them to ids once every exercise exists.
+    id_by_name = {e["name"]: e["id"] for e in exercises}
+    for slot in template_exercises:
+        names = slot.pop("alternatives", None)
+        if not names:
+            continue
+        missing = [n for n in names if n not in id_by_name]
+        if missing:
+            raise SystemExit(f"{slot['id']}: unknown alternative exercise(s) {missing}")
+        slot["alternativeExerciseIds"] = [id_by_name[n] for n in names]
 
     # Volume targets (single prescribed number -> in-range band).
     vt = p["weeklyVolumeTargets"]

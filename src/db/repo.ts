@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import { resolveRotation, type RotationResult } from "../engine/rotation";
 import { isLiveOpenSession } from "../engine/activeSession";
+import { carryVariantSwaps } from "../engine/variants";
 import { weeklyVolumeByMuscle, type MuscleVolume } from "../engine/volume";
 import { normalizeExercise } from "./normalize";
 
@@ -152,14 +153,30 @@ export async function startSession(
     else await finishSession(active.id);
   }
 
+  const swaps = await lastVariantSwaps(templateId);
   const session: WorkoutSession = {
     id: uid("session"),
     templateId,
     date: todayISODate(),
     startedAt: nowISO(),
+    ...(Object.keys(swaps).length ? { swaps } : {}),
   };
   await db.workoutSessions.put(session);
   return { status: "started", session };
+}
+
+// The slot variants (e.g. Cable Fly in the Pec Deck slot) used the last time
+// this workout was completed, so the next session opens on them.
+async function lastVariantSwaps(templateId: string): Promise<Record<string, string>> {
+  const done = await db.workoutSessions
+    .where("templateId")
+    .equals(templateId)
+    .filter((s) => !!s.endedAt)
+    .toArray();
+  done.sort((a, b) => (b.endedAt ?? "").localeCompare(a.endedAt ?? ""));
+  if (!done[0]?.swaps) return {};
+  const slots = await db.templateExercises.where("templateId").equals(templateId).toArray();
+  return carryVariantSwaps(slots, done[0].swaps);
 }
 
 // Swap a template slot to a different exercise for THIS session only (null

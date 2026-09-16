@@ -57,6 +57,9 @@ export interface PlanItem {
   templateExercise: TemplateExercise;
   exercise: Exercise; // the EFFECTIVE exercise (post-swap)
   swappedFrom: Exercise | null; // original slot exercise when swapped
+  // The slot's default exercise followed by its declared alternatives, for the
+  // one-tap variant toggle. Empty when the slot has no alternatives.
+  variants: Exercise[];
   previousSets: SetEntry[] | null;
   previousStats: SetStats | null;
   suggestion: ProgressionSuggestion;
@@ -96,12 +99,17 @@ export async function getUpcomingPlan(
         }
       : view.templateExercise;
 
+    const alternatives = (view.templateExercise.alternativeExerciseIds ?? [])
+      .map((id) => exercisesById.get(id))
+      .filter((e): e is Exercise => !!e);
+
     const previousSets = await getPreviousExerciseSets(exercise.id, activeSessionId);
     const suggestion = suggestProgression(templateExercise, exercise, previousSets, settings);
     items.push({
       templateExercise,
       exercise,
       swappedFrom: swapped ? view.exercise : null,
+      variants: alternatives.length ? [view.exercise, ...alternatives] : [],
       previousSets,
       previousStats: previousSets ? computeSetStats(previousSets) : null,
       suggestion,

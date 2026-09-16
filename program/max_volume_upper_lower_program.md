@@ -1,11 +1,15 @@
 # Max Productive Upper/Lower Split — App Program Spec
 
-Version: 2026-06-26 (rev 2)
+Version: 2026-09-16 (rev 3)
 Goal: natural-lifter hypertrophy with strength progression, high weekly volume, rest/cardio calendar support, and historical workout logging.
 
 > **For Claude Code:** This file has two parts. The prose sections explain *intent* — read them so feature decisions (deload triggers, RIR enforcement, volume math) match the training philosophy. The `PROGRAM_DATA` JSON block near the bottom is the canonical structured data to seed into the app. Treat the JSON as source of truth for exercises/sets/reps; treat the prose as the "why." Preserve any existing user history and adapt to the current codebase — do not rebuild from scratch.
 
 ---
+
+## Changes from rev 2
+
+- Upper A / Upper B slot 5: **"Pec Deck or Cable Fly" split into Pec Deck and Cable Fly.** The two take very different working weights, so they need separate history. Upper A defaults to Pec Deck, Upper B to Cable Fly, and each slot lists the other as its alternative (one-tap switch in the logger). Both keep their existing ids, so logged history carries over: Upper A's → Pec Deck, Upper B's → Cable Fly.
 
 ## Changes from rev 1
 
@@ -79,13 +83,13 @@ Default deload: reduce working sets by 30-50% for one week, keep movement patter
 
 ## PROGRAM_DATA
 
-Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` is `false` for warm-ups and anything intended as activation. `warmupSets` is the suggested number of separate (uncounted) ramp sets for that movement.
+Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` is `false` for warm-ups and anything intended as activation. `warmupSets` is the suggested number of separate (uncounted) ramp sets for that movement. Optional `id` pins an exercise's id instead of deriving it from the name (keeps logged history attached across a rename). Optional `alternatives` names other exercises in this program that can fill the slot; each keeps its own history.
 
 ```json
 {
   "program": {
     "name": "Max Productive Upper/Lower Split",
-    "version": "2026-06-26-rev2",
+    "version": "2026-09-16-rev3",
     "experienceLevel": "advanced",
     "goal": "hypertrophy_with_strength",
     "philosophy": {
@@ -133,7 +137,7 @@ Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` i
           { "order": 2, "name": "Chest-Supported Row", "type": "compound", "sets": 4, "repRange": "6-10", "rir": "1-2", "restSeconds": [120, 180], "primaryMuscles": ["back", "lats"], "secondaryMuscles": ["rear delts", "biceps"], "warmupSets": 1, "countsTowardVolume": true },
           { "order": 3, "name": "Neutral-Grip Lat Pulldown or Pull-Up", "type": "compound", "sets": 4, "repRange": "8-12", "rir": "1-2", "restSeconds": [120, 120], "primaryMuscles": ["lats"], "secondaryMuscles": ["biceps"], "warmupSets": 1, "countsTowardVolume": true },
           { "order": 4, "name": "Seated DB or Machine Shoulder Press", "type": "compound", "sets": 2, "repRange": "6-10", "rir": "1-2", "restSeconds": [120, 120], "primaryMuscles": ["front delts"], "secondaryMuscles": ["triceps", "side delts"], "warmupSets": 1, "countsTowardVolume": true },
-          { "order": 5, "name": "Pec Deck or Cable Fly", "type": "isolation", "sets": 4, "repRange": "10-15", "rir": "0-1", "restSeconds": [75, 90], "primaryMuscles": ["chest"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
+          { "order": 5, "name": "Pec Deck", "id": "pec-deck-or-cable-fly", "alternatives": ["Cable Fly"], "type": "isolation", "sets": 4, "repRange": "10-15", "rir": "0-1", "restSeconds": [75, 90], "primaryMuscles": ["chest"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
           { "order": 6, "name": "Cable Lateral Raise", "type": "isolation", "sets": 4, "repRange": "12-20", "rir": "0-1", "restSeconds": [60, 75], "primaryMuscles": ["side delts"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
           { "order": 7, "name": "Face Pull", "type": "isolation", "sets": 3, "repRange": "12-20", "rir": "0-1", "restSeconds": [60, 75], "primaryMuscles": ["rear delts"], "secondaryMuscles": ["mid traps", "external rotators"], "warmupSets": 0, "countsTowardVolume": true, "note": "Replaces reverse pec deck — adds external rotation + trap work for shoulder health." },
           { "order": 8, "name": "Incline Dumbbell Curl", "type": "isolation", "sets": 4, "repRange": "8-12", "rir": "0-1", "restSeconds": [75, 90], "primaryMuscles": ["biceps"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
@@ -162,7 +166,7 @@ Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` i
           { "order": 2, "name": "Weighted Pull-Up or Neutral Pulldown", "type": "compound", "sets": 4, "repRange": "6-10", "rir": "1-2", "restSeconds": [120, 180], "primaryMuscles": ["lats"], "secondaryMuscles": ["biceps"], "warmupSets": 2, "countsTowardVolume": true },
           { "order": 3, "name": "Cable Row", "type": "compound", "sets": 4, "repRange": "8-12", "rir": "1-2", "restSeconds": [120, 120], "primaryMuscles": ["back"], "secondaryMuscles": ["rear delts", "biceps"], "warmupSets": 1, "countsTowardVolume": true },
           { "order": 4, "name": "Low-Incline Dumbbell Press", "type": "compound", "sets": 4, "repRange": "8-12", "rir": "1-2", "restSeconds": [120, 120], "primaryMuscles": ["chest"], "secondaryMuscles": ["front delts", "triceps"], "warmupSets": 1, "countsTowardVolume": true },
-          { "order": 5, "name": "Cable Fly or Pec Deck", "type": "isolation", "sets": 2, "repRange": "12-20", "rir": "0-1", "restSeconds": [75, 90], "primaryMuscles": ["chest"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
+          { "order": 5, "name": "Cable Fly", "id": "cable-fly-or-pec-deck", "alternatives": ["Pec Deck"], "type": "isolation", "sets": 2, "repRange": "12-20", "rir": "0-1", "restSeconds": [75, 90], "primaryMuscles": ["chest"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
           { "order": 6, "name": "Machine or Cable Lateral Raise", "type": "isolation", "sets": 4, "repRange": "12-20", "rir": "0-1", "restSeconds": [60, 75], "primaryMuscles": ["side delts"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
           { "order": 7, "name": "Rear-Delt Cable Fly", "type": "isolation", "sets": 3, "repRange": "12-20", "rir": "0-1", "restSeconds": [60, 75], "primaryMuscles": ["rear delts"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
           { "order": 8, "name": "Cable Curl or EZ-Bar Curl", "type": "isolation", "sets": 4, "repRange": "8-12", "rir": "0-1", "restSeconds": [75, 90], "primaryMuscles": ["biceps"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true, "note": "Cable preferred — better peak tension at shortened position, cleaner load jumps." },
