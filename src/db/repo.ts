@@ -13,6 +13,7 @@ import type {
   WorkoutTemplate,
 } from "../types";
 import { resolveRotation, type RotationResult } from "../engine/rotation";
+import { isLiveOpenSession } from "../engine/activeSession";
 import { weeklyVolumeByMuscle, type MuscleVolume } from "../engine/volume";
 import { normalizeExercise } from "./normalize";
 
@@ -62,10 +63,19 @@ export async function getTemplateExerciseViews(
 // ---------------------------------------------------------------------------
 
 export async function getActiveSession(): Promise<WorkoutSession | null> {
-  // A session with no endedAt is "in progress".
+  // A session with no endedAt is "in progress" — unless it is an empty one left
+  // open on an earlier day, which stays on the calendar but must not take over
+  // Today or block starting a workout (see isLiveOpenSession).
+  const today = todayISODate();
   const open = await db.workoutSessions.filter((s) => !s.endedAt).toArray();
-  open.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
-  return open[0] ?? null;
+  const live: WorkoutSession[] = [];
+  for (const s of open) {
+    const setCount =
+      s.date < today ? await db.setEntries.where("sessionId").equals(s.id).count() : 0;
+    if (isLiveOpenSession(s, setCount, today)) live.push(s);
+  }
+  live.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  return live[0] ?? null;
 }
 
 export async function getLastCompletedSession(): Promise<WorkoutSession | null> {
@@ -112,10 +122,12 @@ export async function createBackdatedSession(
 /**
  * Starts (or resumes) a workout.
  *
- * Only ONE session may be open at a time. Previously a different template
+ * Only ONE session may be in progress at a time. Previously a different template
  * silently created a second open session, and `getActiveSession` (newest wins)
  * then hid the first one — a logged workout could vanish from the UI while its
- * sets sat in the database. Now the caller must decide:
+ * sets sat in the database. (Empty sessions left open on an earlier day don't
+ * count and are left alone — they stay on the calendar.) Now the caller must
+ * decide:
  *   - same template  -> resume it
  *   - different, empty -> discard the empty one and start fresh
  *   - different, has sets -> refuse unless `force`, so the UI can prompt

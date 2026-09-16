@@ -54,13 +54,20 @@ export default function CalendarScreen() {
     year: "numeric",
   });
 
+  // Unfinished sessions open in the logger, where they can be finished or
+  // discarded; finished ones open their summary.
+  function openSession(id: string) {
+    const s = data?.sessions.find((x) => x.id === id);
+    navigate(s && !s.endedAt ? `/workout/${id}` : `/summary/${id}`);
+  }
+
   async function onCellClick(day: CalendarDay) {
     if (day.sessionIds.length > 1) {
       setPicker({ date: day.date, sessionIds: day.sessionIds });
       return;
     }
     if (day.sessionIds.length === 1) {
-      navigate(`/summary/${day.sessionIds[0]}`);
+      openSession(day.sessionIds[0]);
       return;
     }
     if (day.status === "planned" && day.template && day.isToday) {
@@ -141,8 +148,8 @@ export default function CalendarScreen() {
           </span>
         </div>
         <div className="faint tiny mt">
-          Tap a completed day for its session · tap today's lift to start it · tap a past day to
-          log a workout you forgot to enter.
+          Tap a completed day for its session · tap an in-progress day to finish or discard it ·
+          tap today's lift to start it · tap a past day to log a workout you forgot to enter.
         </div>
       </div>
 
@@ -187,7 +194,7 @@ export default function CalendarScreen() {
           templates={data.templates}
           onPick={(id) => {
             setPicker(null);
-            navigate(`/summary/${id}`);
+            openSession(id);
           }}
           onClose={() => setPicker(null)}
         />
@@ -223,7 +230,7 @@ function SessionPicker({
             const t = s ? tById.get(s.templateId) : undefined;
             const time = s?.endedAt
               ? new Date(s.endedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-              : "";
+              : "unfinished";
             return (
               <button
                 key={id}
