@@ -127,11 +127,23 @@ export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate,
         </div>
       )}
 
-      {te.warmupSets > 0 && (
+      {item.painLabels.length > 0 ? (
+        // Recent pain note on an area this lift loads: one extra warm-up set.
         <div className="faint tiny mt">
-          🔥 Warm-up: {te.warmupSets} ramp set{te.warmupSets === 1 ? "" : "s"} (~50%, 75%) — tap the
-          W toggle; warm-ups don't count toward volume.
+          🔥 Warm-up:{" "}
+          {te.warmupSets > 0 ? `${te.warmupSets + 1} ramp sets (~50%, 75%)` : "1 light set first"}{" "}
+          <span style={{ color: "var(--amber)" }}>
+            — {te.warmupSets > 0 ? "includes +1" : "added"} for your {item.painLabels.join(" & ")}
+          </span>
+          . Tap the W toggle; warm-ups don't count toward volume.
         </div>
+      ) : (
+        te.warmupSets > 0 && (
+          <div className="faint tiny mt">
+            🔥 Warm-up: {te.warmupSets} ramp set{te.warmupSets === 1 ? "" : "s"} (~50%, 75%) — tap the
+            W toggle; warm-ups don't count toward volume.
+          </div>
+        )
       )}
 
       {/* Last session + deterministic suggestion */}

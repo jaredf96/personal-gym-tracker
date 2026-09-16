@@ -12,7 +12,8 @@ import {
   listExercises,
   setSessionSwap,
 } from "../db/repo";
-import { getUpcomingPlan, type PlanItem } from "../engine/analysis";
+import { getUpcomingPlan, loadActivePainAreas, type PlanItem } from "../engine/analysis";
+import PainHeadsUp from "../components/PainHeadsUp";
 import type { Exercise, SetEntry } from "../types";
 import { fmtNum, plural } from "../lib/format";
 import ExerciseCard from "../components/ExerciseCard";
@@ -40,8 +41,14 @@ export default function LoggerScreen() {
     if (!session) return { session: null, next: (await getNextTemplate()).template };
 
     const template = await db.workoutTemplates.get(session.templateId);
+    // Notes shape today's live workout only — not a finished session being
+    // edited or a past one being backfilled.
+    const painAreas =
+      !session.endedAt && session.date === todayISODate() ? await loadActivePainAreas() : [];
     const [plan, sets, settings, allExercises] = await Promise.all([
-      template ? getUpcomingPlan(template, session.id, session.swaps) : Promise.resolve(null),
+      template
+        ? getUpcomingPlan(template, session.id, session.swaps, painAreas)
+        : Promise.resolve(null),
       getSetsForSession(session.id),
       getSettings(),
       listExercises(),
@@ -164,6 +171,8 @@ export default function LoggerScreen() {
           </div>
         </div>
       )}
+
+      <PainHeadsUp adjustments={plan.pain} />
 
       {plan.items.map((item) => (
         <ExerciseCard

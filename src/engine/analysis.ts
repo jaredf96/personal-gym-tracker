@@ -24,6 +24,17 @@ import {
   readyToProgressFlags,
   type EngineFlag,
 } from "./flags";
+import {
+  CLEAR_AFTER_CLEAN_SESSIONS,
+  PAIN_WINDOW_DAYS,
+  activePainAreas,
+  adjustmentsForExercises,
+  type ActivePainArea,
+  type PainAdjustment,
+  type PainNoteSource,
+  type TrainedSession,
+} from "./painNotes";
+import { addDaysISO, todayISODate } from "../lib/dates";
 
 // Builds a synthetic TemplateExercise from an exercise's defaults, for the case
 // where an exercise has history but isn't in the current template.
@@ -63,17 +74,54 @@ export interface PlanItem {
   previousSets: SetEntry[] | null;
   previousStats: SetStats | null;
   suggestion: ProgressionSuggestion;
+  // Areas from recent pain notes this lift loads ("left shoulder"). Each lift
+  // with any gets one extra warm-up set; empty normally.
+  painLabels: string[];
 }
 
 export interface UpcomingPlan {
   template: WorkoutTemplate;
   items: PlanItem[];
+  pain: PainAdjustment[]; // heads-up for this workout from recent notes
+}
+
+/**
+ * Pain areas from recent notes that should still shape upcoming workouts: set
+ * notes from COMPLETED sessions plus readiness notes, over the last
+ * PAIN_WINDOW_DAYS. A workout in progress never adjusts itself from its own notes.
+ */
+export async function loadActivePainAreas(today = todayISODate()): Promise<ActivePainArea[]> {
+  const since = addDaysISO(-PAIN_WINDOW_DAYS, new Date(`${today}T12:00:00`));
+  const [sessions, readiness, exercisesById] = await Promise.all([
+    db.workoutSessions.where("date").aboveOrEqual(since).filter((s) => !!s.endedAt).toArray(),
+    db.readinessLogs.where("date").aboveOrEqual(since).toArray(),
+    getExercisesById(),
+  ]);
+
+  const notes: PainNoteSource[] = [];
+  const trained: TrainedSession[] = [];
+  for (const s of sessions) {
+    const sets = await db.setEntries.where("sessionId").equals(s.id).toArray();
+    trained.push({
+      date: s.date,
+      endedAt: s.endedAt as string,
+      exerciseIds: [...new Set(sets.filter((x) => !x.isWarmup).map((x) => x.exerciseId))],
+    });
+    for (const set of sets) {
+      if (set.notes) notes.push({ text: set.notes, date: s.date, endedAt: s.endedAt });
+    }
+  }
+  for (const r of readiness) {
+    if (r.notes) notes.push({ text: r.notes, date: r.date });
+  }
+  return activePainAreas(notes, trained, exercisesById, today);
 }
 
 export async function getUpcomingPlan(
   template: WorkoutTemplate,
   activeSessionId?: string,
-  swaps?: Record<string, string>
+  swaps?: Record<string, string>,
+  painAreas: ActivePainArea[] = []
 ): Promise<UpcomingPlan> {
   const [views, settings, exercisesById] = await Promise.all([
     getTemplateExerciseViews(template.id),
@@ -113,9 +161,17 @@ export async function getUpcomingPlan(
       previousSets,
       previousStats: previousSets ? computeSetStats(previousSets) : null,
       suggestion,
+      painLabels: [],
     });
   }
-  return { template, items };
+
+  const pain = adjustmentsForExercises(painAreas, items.map((i) => i.exercise));
+  for (const item of items) {
+    item.painLabels = pain
+      .filter((a) => a.affected.some((e) => e.id === item.exercise.id))
+      .map((a) => a.label);
+  }
+  return { template, items, pain };
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +253,26 @@ export async function analyzeSession(sessionId: string): Promise<SessionAnalysis
     const pain = painFlag(exerciseId, exercise.name, todaySets);
     if (pain) flags.push(pain);
   }
+
+  // Pain this session's notes place in an area leads the flags, so the coach
+  // mentions what changes next time (warm-ups + stretches; weights untouched).
+  const notedAreas = activePainAreas(
+    sets
+      .filter((s) => !!s.notes)
+      .map((s) => ({ text: s.notes as string, date: session.date, endedAt: session.endedAt })),
+    [],
+    exercisesById,
+    session.date
+  );
+  flags.unshift(
+    ...notedAreas.map((a) => ({
+      kind: "pain-note" as const,
+      severity: "warn" as const,
+      ref: a.area,
+      refLabel: a.label,
+      message: `${a.label.charAt(0).toUpperCase()}${a.label.slice(1)}: you noted pain here. Your next workouts that load it add a warm-up set and a short stretch list until ${CLEAR_AFTER_CLEAN_SESSIONS} pain-free sessions. A cue to adjust, not a diagnosis.`,
+    }))
+  );
 
   flags.push(
     ...readyToProgressFlags(

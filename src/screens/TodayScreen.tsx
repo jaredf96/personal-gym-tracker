@@ -6,10 +6,13 @@ import {
   getActiveSession,
   getNextTemplate,
   getSettings,
+  getTemplateExerciseViews,
   getWeeklySchedule,
   listTemplates,
 } from "../db/repo";
-import { analyzeSession } from "../engine/analysis";
+import { analyzeSession, loadActivePainAreas } from "../engine/analysis";
+import { adjustmentsForExercises, type PainAdjustment } from "../engine/painNotes";
+import PainHeadsUp from "../components/PainHeadsUp";
 import { describeDate, type DayDescriptor } from "../engine/schedule";
 import { getDeloadAssessment } from "../engine/deload";
 import { todayISODate, relativeDay , addDaysISO } from "../lib/dates";
@@ -62,6 +65,14 @@ export default function TodayScreen() {
       ? await analyzeSession(nextInfo.lastCompleted.id)
       : null;
     const deload = await getDeloadAssessment();
+    // Recent pain notes, per split, so the heads-up follows whichever split is
+    // selected before Start.
+    const painAreas = await loadActivePainAreas();
+    const painByTemplate: Record<string, PainAdjustment[]> = {};
+    for (const t of painAreas.length ? templates : []) {
+      const views = await getTemplateExerciseViews(t.id);
+      painByTemplate[t.id] = adjustmentsForExercises(painAreas, views.map((v) => v.exercise));
+    }
     return {
       templates,
       today,
@@ -73,11 +84,12 @@ export default function TodayScreen() {
       settings,
       lastSummary,
       deload,
+      painByTemplate,
     };
   }, [dateKey]);
 
   if (!data) return <ScreenSkeleton />;
-  const { templates, today, tomorrow, nextLift, rotationReason, daysSinceLast, active, settings, lastSummary, deload } = data;
+  const { templates, today, tomorrow, nextLift, rotationReason, daysSinceLast, active, settings, lastSummary, deload, painByTemplate } = data;
 
   // The plan's suggestion, unless the user has picked a different split.
   const planned = today.plannedTemplate ?? nextLift;
@@ -128,6 +140,10 @@ export default function TodayScreen() {
           daysSinceLast={daysSinceLast}
           onStart={start}
         />
+      )}
+
+      {!active && selected && !today.completed && (
+        <PainHeadsUp adjustments={painByTemplate[selected.id] ?? []} listLifts />
       )}
 
       {/* Tomorrow preview */}
