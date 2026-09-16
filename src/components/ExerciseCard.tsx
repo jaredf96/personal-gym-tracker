@@ -5,6 +5,7 @@ import { addSetEntry, deleteSetEntry, updateSetEntry } from "../db/repo";
 import { fmtNum, fmtWeight, repRange } from "../lib/format";
 import { Pill } from "./ui";
 import { muscleLabel } from "../db/normalize";
+import { todayISODate } from "../lib/dates";
 
 interface Props {
   item: PlanItem;
@@ -41,9 +42,10 @@ export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate,
     const w = weight === "" ? 0 : parseFloat(weight);
     const rirN = parseInt(rir, 10);
     // Backdated session: stamp sets inside that day so ordering and
-    // "previous session" comparisons stay truthful.
+    // "previous session" comparisons stay truthful. Session dates are LOCAL
+    // (todayISODate); a UTC date made every evening workout look backdated.
     const backdated =
-      sessionDate !== new Date().toISOString().slice(0, 10)
+      sessionDate !== todayISODate()
         ? new Date(`${sessionDate}T12:00:00.000Z`).getTime() + sets.length * 120_000
         : null;
     await addSetEntry({

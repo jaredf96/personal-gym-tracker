@@ -23,6 +23,7 @@ import ScreenSkeleton from "../components/Skeleton";
 import Sheet from "../components/Sheet";
 import { muscleLabel } from "../db/normalize";
 import { startWorkoutFlow } from "../lib/startWorkout";
+import { todayISODate } from "../lib/dates";
 
 export default function LoggerScreen() {
   const { sessionId } = useParams();
@@ -82,7 +83,7 @@ export default function LoggerScreen() {
 
   const { session, plan, sets, settings, allExercises } = data;
   const isEditing = !!session.endedAt;
-  const isBackdated = session.date !== new Date().toISOString().slice(0, 10);
+  const isBackdated = session.date !== todayISODate();
 
   // Group logged sets by exercise.
   const byExercise = new Map<string, SetEntry[]>();
