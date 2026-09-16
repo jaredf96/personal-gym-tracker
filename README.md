@@ -38,7 +38,7 @@ session dated a few days ago so last-session comparison works immediately.
 - **Workout Logger** — per-exercise cards showing target sets, rep range, rest, progression rule,
   the template coaching note, **your last performance**, and the **deterministic next-set
   suggestion**. Log weight / reps / RIR / warmup vs working, optional notes. A rest timer starts
-  after each working set. Finish to save.
+  after each set (half length after a warm-up). Finish to save.
 - **Summary** (after finishing) — totals, per-exercise improved/matched/regressed vs last time,
   the suggestion for next time, rule-engine flags, and a one-tap **Coach Summary**.
 - **History** — every logged exercise, with per-session best set / total reps / total volume,

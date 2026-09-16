@@ -269,7 +269,7 @@ export default function SettingsScreen() {
         <div className="row between mt-lg">
           <div>
             <div>Rest timer auto-start</div>
-            <div className="faint tiny">Start the countdown after each working set</div>
+            <div className="faint tiny">Start the countdown after each set (half length after warm-ups)</div>
           </div>
           <button
             className={settings.restTimerAutoStart ? "btn-primary" : ""}

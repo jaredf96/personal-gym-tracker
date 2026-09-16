@@ -62,7 +62,8 @@ export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate,
     setReps("");
     setNote("");
     setShowNote(false);
-    if (!isWarmup) onSetLogged(te.restMax);
+    // Warm-ups are light ramp sets: half the working rest.
+    onSetLogged(isWarmup ? Math.round(te.restMax / 2) : te.restMax);
   }
 
   const restLabel = te.restMin === te.restMax ? `${te.restMin}s` : `${te.restMin}–${te.restMax}s`;
@@ -204,7 +205,7 @@ export default function ExerciseCard({ item, sets, unit, sessionId, sessionDate,
             </button>
           </div>
           <span className="faint tiny">
-            {isWarmup ? "Warmup set (no rest timer)" : `Working set ${workingCount + 1}`}
+            {isWarmup ? "Warm-up set (half rest)" : `Working set ${workingCount + 1}`}
           </span>
         </div>
         {showPlates && (
