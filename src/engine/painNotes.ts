@@ -55,7 +55,12 @@ const MILD =
 const NOT_PAIN = [
   /\b(?:no|zero|without)\s+(?:\w+\s+){0,2}?(?:pain|discomfort|issues?|problems?|soreness|tightness)\b/g,
   /\bpain[- ]?free\b/g,
-  /\b(?:doesn't|does not|didn't|did not|don't|do not|not|never)\s+(?:\w+\s+)?(?:hurt|hurts|hurting|ache|aching|sore|tight|bother\w*)\b/g,
+  // Negated symptoms: "doesn't hurt", "not painful", "isn't sore", "no longer hurts".
+  /\b(?:doesn't|does not|didn't|did not|don't|do not|isn't|wasn't|aren't|weren't|hasn't|haven't|not|never|no longer)\s+(?:\w+\s+)?(?:hurt|hurts|hurting|painful|ache|aches|aching|achy|sore|tight|stiff|tender|pinch\w*|bother\w*)\b/g,
+  // Resolved: "pain has resolved", "knee pain's gone", "strain healed". Not "went
+  // away" (often "after warm-up": pain the extra warm-up set is for) or "almost
+  // gone" (still there).
+  /\b(?:pain|ache|soreness|tightness|stiffness|discomfort|pinch|tweak|twinge|strain)(?:'s)?\s+(?:(?:has|have|had|is|was|now|finally|fully|totally|completely|all)\s+){0,2}(?:resolved|gone|healed|cleared(?:\s+up)?)\b/g,
   // Coaching cues, not symptoms: "keep back tight", "stay tight", "brace tight",
   // and "get tight" as an instruction (but "shoulder getting tight" is a symptom).
   /\b(?:keep|keeping|kept|stay|staying|stayed|brace|bracing|braced|squeeze|squeezing)\s+(?:\w+\s+){0,2}?tight\b/g,
@@ -383,6 +388,8 @@ export function activePainAreas(
     const sameDayOnly = recent.some((m) => m.date === latest.date && !m.endedAt);
 
     const clean = sessions.filter((s) => {
+      // Dated after today (another device's clock or time zone): not trained yet.
+      if (s.date > today) return false;
       const after =
         s.date > latest.date ||
         (s.date === latest.date && !sameDayOnly && boundary !== undefined && s.endedAt > boundary);

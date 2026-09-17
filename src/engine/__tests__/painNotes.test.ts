@@ -81,6 +81,16 @@ describe("parsePainNote", () => {
     ["shoulder press hurt", [{ area: "shoulder" }]],
     ["elbow tendinitis flaring up", [{ area: "elbow" }]],
     ["Knee didn’t hurt today, shoulder pinchy", [{ area: "shoulder" }]],
+    // Still pain, despite words near a negation or a resolution:
+    ["shoulder pain not gone yet", [{ area: "shoulder" }]],
+    ["knee pain hasn't gone away", [{ area: "knee" }]],
+    ["knee pain almost gone", [{ area: "knee" }]],
+    ["knee pain mostly gone", [{ area: "knee" }]],
+    ["elbow still hurts, not resolved", [{ area: "elbow" }]],
+    ["shoulder not painful but tight", [{ area: "shoulder" }]],
+    ["knee no longer hurts, elbow still sore", [{ area: "elbow" }]],
+    ["shoulder pinch went away after warm-up", [{ area: "shoulder" }]],
+    ["not sure why but left knee hurts", [{ area: "knee", side: "left" }]],
     // Must NOT count:
     ["keep back tight", []],
     ["brace, stay tight", []],
@@ -88,6 +98,16 @@ describe("parsePainNote", () => {
     ["no shoulder pain today", []],
     ["shoulder pain-free", []],
     ["knee doesn't hurt anymore", []],
+    // REGRESSION: negated or resolved pain used to count.
+    ["shoulder not painful today", []],
+    ["knee no longer hurts", []],
+    ["left shoulder pain has resolved", []],
+    ["elbow pain is gone", []],
+    ["knee pain's gone", []],
+    ["wrist isn't sore anymore", []],
+    ["left knee no longer stiff", []],
+    ["hamstring strain has healed", []],
+    ["shoulder pinch cleared up", []],
     ["quads sore from Tuesday", []], // ordinary muscle soreness
     ["rear delts sore", []],
     ["sore", []],
@@ -167,6 +187,14 @@ describe("activePainAreas", () => {
     expect(activePainAreas([n], one, ALL, "2026-09-04")[0].cleanSessionsSince).toBe(1);
     const two = [...one, session("2026-09-07", UPPER_A)];
     expect(activePainAreas([n], two, ALL, "2026-09-08")).toEqual([]);
+  });
+
+  it("REGRESSION: a session dated after today doesn't count toward clearing the area", () => {
+    const n = note("shoulder pain", "2026-09-01", "2026-09-01T19:00:00.000Z");
+    const sessions = [session("2026-09-01", UPPER_A), session("2026-09-03", UPPER_A), session("2026-09-09", UPPER_A)];
+    const active = activePainAreas([n], sessions, ALL, "2026-09-08");
+    expect(active).toHaveLength(1);
+    expect(active[0].cleanSessionsSince).toBe(1);
   });
 
   it("a new note restarts the count", () => {
