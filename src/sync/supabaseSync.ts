@@ -214,12 +214,18 @@ function onLocalDelete(t: BackupTableName, primKey: unknown) {
     return;
   }
   noteMutation(t, primKey);
+  const sentAs = currentUserId;
   void supabase
     .from(REMOTE[t])
     .delete()
-    .eq("user_id", currentUserId)
+    .eq("user_id", sentAs)
     .eq("id", id)
     .then(({ error }) => {
+      // Signed out, or into another account, while this was in flight — or
+      // back in as the sender while the local cache is still another
+      // account's: a re-upload queued now would send the wrong rows.
+      if (currentUserId !== sentAs) return;
+      if (!ownsLocalCache(localStorage.getItem(OWNER_KEY), sentAs)) return;
       if (!error) {
         // Confirm, don't clear: the tombstone must outlive this delete so a
         // racing push or another device can't bring the row back (a cleared
