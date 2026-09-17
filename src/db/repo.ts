@@ -64,15 +64,15 @@ export async function getTemplateExerciseViews(
 // ---------------------------------------------------------------------------
 
 export async function getActiveSession(): Promise<WorkoutSession | null> {
-  // A session with no endedAt is "in progress" — unless it is an empty one left
-  // open on an earlier day, which stays on the calendar but must not take over
+  // A session with no endedAt is "in progress" — unless it is an empty one
+  // dated another day, which stays on the calendar but must not take over
   // Today or block starting a workout (see isLiveOpenSession).
   const today = todayISODate();
   const open = await db.workoutSessions.filter((s) => !s.endedAt).toArray();
   const live: WorkoutSession[] = [];
   for (const s of open) {
     const setCount =
-      s.date < today ? await db.setEntries.where("sessionId").equals(s.id).count() : 0;
+      s.date !== today ? await db.setEntries.where("sessionId").equals(s.id).count() : 0;
     if (isLiveOpenSession(s, setCount, today)) live.push(s);
   }
   live.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
@@ -126,7 +126,7 @@ export async function createBackdatedSession(
  * Only ONE session may be in progress at a time. Previously a different template
  * silently created a second open session, and `getActiveSession` (newest wins)
  * then hid the first one — a logged workout could vanish from the UI while its
- * sets sat in the database. (Empty sessions left open on an earlier day don't
+ * sets sat in the database. (Empty sessions left open on another day don't
  * count and are left alone — they stay on the calendar.) Now the caller must
  * decide:
  *   - same template  -> resume it

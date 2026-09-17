@@ -30,4 +30,12 @@ describe("isLiveOpenSession", () => {
   it("a finished session is never in progress", () => {
     expect(isLiveOpenSession(session(TODAY, true), 5, TODAY)).toBe(false);
   });
+
+  it("REGRESSION: an empty session dated after today is not in progress", () => {
+    expect(isLiveOpenSession(session("2026-09-17"), 0, TODAY)).toBe(false);
+  });
+
+  it("a session dated after today with sets is still in progress, so it isn't lost", () => {
+    expect(isLiveOpenSession(session("2026-09-17"), 2, TODAY)).toBe(true);
+  });
 });

@@ -7,7 +7,9 @@ import type { WorkoutSession } from "../types";
  * an earlier day (a backfill that was never filled in, an old tap on Start)
  * stays visible on the calendar, where it can be opened and discarded, but must
  * not take over Today or block starting another workout. It is never deleted
- * automatically: its sets may simply not have synced down yet.
+ * automatically: its sets may simply not have synced down yet. The same goes
+ * for an empty session dated after today (synced from a device whose clock or
+ * time zone is ahead).
  */
 export function isLiveOpenSession(
   session: WorkoutSession,
@@ -15,5 +17,5 @@ export function isLiveOpenSession(
   today: string
 ): boolean {
   if (session.endedAt) return false;
-  return session.date >= today || setCount > 0;
+  return session.date === today || setCount > 0;
 }
