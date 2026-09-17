@@ -76,11 +76,12 @@ function exercise(id: string, name: string, defaultRepMin: number, defaultRepMax
 const INCLINE = exercise("incline-dumbbell-press", "Incline Dumbbell Press", 6, 10);
 const PEC_DECK = exercise("pec-deck-or-cable-fly", "Pec Deck", 10, 15);
 const CABLE_FLY = exercise("cable-fly-or-pec-deck", "Cable Fly", 12, 20);
+const LATERAL = exercise("cable-lateral-raise", "Cable Lateral Raise", 12, 20);
 const VIEWS = [
   { templateExercise: SLOTS[0], exercise: INCLINE },
   { templateExercise: SLOTS[1], exercise: PEC_DECK },
 ];
-const BY_ID = new Map([INCLINE, PEC_DECK, CABLE_FLY].map((e) => [e.id, e]));
+const BY_ID = new Map([INCLINE, PEC_DECK, CABLE_FLY, LATERAL].map((e) => [e.id, e]));
 
 describe("slotsByExercise", () => {
   it("REGRESSION: Cable Fly swapped into Upper A's fly slot is graded as that slot, 4 × 10–15", () => {
@@ -100,7 +101,17 @@ describe("slotsByExercise", () => {
     expect(swapped.get(INCLINE.id)?.id).toBe("upper-a:1");
   });
 
-  it("an exercise the session didn't swap in has no slot (falls back to its defaults)", () => {
-    expect(slotsByExercise(VIEWS, undefined, BY_ID).get(CABLE_FLY.id)).toBeUndefined();
+  it("REGRESSION: Cable Fly logged, then the slot toggled back to Pec Deck, still grades as that slot", () => {
+    // Toggling back removes the swap; the Cable Fly sets stay in the workout.
+    const te = slotsByExercise(VIEWS, {}, BY_ID).get(CABLE_FLY.id);
+    expect(te).toMatchObject({ id: "upper-a:5", exerciseId: CABLE_FLY.id, targetSets: 4, repMin: 10, repMax: 15 });
+  });
+
+  it("the session's current swap wins over a slot that merely declares the exercise", () => {
+    expect(slotsByExercise(VIEWS, { "upper-a:1": CABLE_FLY.id }, BY_ID).get(CABLE_FLY.id)?.id).toBe("upper-a:1");
+  });
+
+  it("an exercise neither in the workout, swapped in, nor declared falls back to its defaults", () => {
+    expect(slotsByExercise(VIEWS, undefined, BY_ID).get(LATERAL.id)).toBeUndefined();
   });
 });

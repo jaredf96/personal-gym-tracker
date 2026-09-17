@@ -38,8 +38,9 @@ export function swappedSlot(slot: TemplateExercise, exercise: Exercise): Templat
  * The slot each exercise in a session was logged under, so a finished session
  * is graded the way the logger prescribed it: Cable Fly swapped into Upper A's
  * fly slot is judged against that slot's sets and reps, not its own defaults.
- * A default exercise keeps its slot even when swapped away (sets logged before
- * the toggle).
+ * A default exercise keeps its slot even when swapped away, and so does a
+ * declared alternative when the slot was toggled back after logging it: the
+ * session only records its final swaps, but those sets stay in the workout.
  */
 export function slotsByExercise(
   slots: { templateExercise: TemplateExercise; exercise: Exercise }[],
@@ -47,10 +48,13 @@ export function slotsByExercise(
   exercisesById: Map<string, Exercise>
 ): Map<string, TemplateExercise> {
   const out = new Map(slots.map((s) => [s.exercise.id, s.templateExercise]));
+  const assign = (slot: TemplateExercise, exerciseId: string | undefined) => {
+    const ex = exerciseId ? exercisesById.get(exerciseId) : undefined;
+    if (ex && !out.has(ex.id)) out.set(ex.id, swappedSlot(slot, ex));
+  };
+  for (const { templateExercise } of slots) assign(templateExercise, swaps?.[templateExercise.id]);
   for (const { templateExercise } of slots) {
-    const swapId = swaps?.[templateExercise.id];
-    const swapped = swapId ? exercisesById.get(swapId) : undefined;
-    if (swapped && !out.has(swapped.id)) out.set(swapped.id, swappedSlot(templateExercise, swapped));
+    for (const alt of templateExercise.alternativeExerciseIds ?? []) assign(templateExercise, alt);
   }
   return out;
 }
