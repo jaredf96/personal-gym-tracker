@@ -115,6 +115,44 @@ def secondary_volume_muscles(secondary, primary_keys):
     return out
 
 
+def define_exercise(ex, exercises_by_id):
+    """Add an exercise to the library if it isn't there yet; return its id.
+
+    Takes either a slot (its default exercise) or an `alternatives` entry that
+    spells a variant out — one that is no slot's default, like Hack Squat. An
+    explicit "id" pins the id so logged history survives a rename.
+    """
+    name = ex["name"]
+    eid = ex.get("id") or slug(name)
+    if eid not in exercises_by_id:
+        rmin, rmax, per_side = parse_reps(ex["repRange"])
+        rest = ex["restSeconds"]
+        ex_type = ex["type"]
+        prim = ex["primaryMuscles"]
+        sec = ex.get("secondaryMuscles", [])
+        vmusc = volume_muscles(prim)
+        exercises_by_id[eid] = {
+            "id": eid,
+            "name": name,
+            "type": ex_type,
+            "primaryMuscles": prim,
+            "secondaryMuscles": sec,
+            "volumeMuscles": vmusc,
+            "secondaryVolumeMuscles": secondary_volume_muscles(sec, vmusc),
+            "movementPattern": movement_pattern(name),
+            "defaultRepMin": rmin,
+            "defaultRepMax": rmax,
+            "perSide": per_side,
+            "defaultRestMin": rest[0],
+            "defaultRestMax": rest[1],
+            "rirTarget": ex["rir"],
+            "defaultWarmupSets": ex.get("warmupSets", 0),
+            "progressionRule": progression_rule(name, ex_type),
+            "note": ex.get("note"),
+        }
+    return eid
+
+
 def main():
     md = open(SRC).read()
     m = re.search(r"```json\s*(\{.*?\})\s*```", md, re.S)
@@ -151,37 +189,11 @@ def main():
             }
         )
         for ex in w["exercises"]:
-            name = ex["name"]
-            # An explicit id keeps logged history attached when a name changes.
-            eid = ex.get("id") or slug(name)
+            eid = define_exercise(ex, exercises_by_id)
             rmin, rmax, per_side = parse_reps(ex["repRange"])
             rest = ex["restSeconds"]
             ex_type = ex["type"]
-            rule = progression_rule(name, ex_type)
-            prim = ex["primaryMuscles"]
-            sec = ex.get("secondaryMuscles", [])
-            vmusc = volume_muscles(prim)
-
-            if eid not in exercises_by_id:
-                exercises_by_id[eid] = {
-                    "id": eid,
-                    "name": name,
-                    "type": ex_type,
-                    "primaryMuscles": prim,
-                    "secondaryMuscles": sec,
-                    "volumeMuscles": vmusc,
-                    "secondaryVolumeMuscles": secondary_volume_muscles(sec, vmusc),
-                    "movementPattern": movement_pattern(name),
-                    "defaultRepMin": rmin,
-                    "defaultRepMax": rmax,
-                    "perSide": per_side,
-                    "defaultRestMin": rest[0],
-                    "defaultRestMax": rest[1],
-                    "rirTarget": ex["rir"],
-                    "defaultWarmupSets": ex.get("warmupSets", 0),
-                    "progressionRule": rule,
-                    "note": ex.get("note"),
-                }
+            rule = progression_rule(ex["name"], ex_type)
 
             slot = {
                 "id": f"{tid}:{ex['order']}",
@@ -202,8 +214,16 @@ def main():
                 "isMainLift": ex["order"] == 1,
                 "notes": ex.get("note"),
             }
+            # An alternative is either the name of an exercise some slot uses,
+            # or a full definition of a variant that is no slot's default.
             if ex.get("alternatives"):
-                slot["alternatives"] = ex["alternatives"]  # names, resolved below
+                names = []
+                for alt in ex["alternatives"]:
+                    if not isinstance(alt, str):
+                        define_exercise(alt, exercises_by_id)
+                        alt = alt["name"]
+                    names.append(alt)
+                slot["alternatives"] = names  # resolved to ids below
             template_exercises.append(slot)
 
     exercises = list(exercises_by_id.values())
