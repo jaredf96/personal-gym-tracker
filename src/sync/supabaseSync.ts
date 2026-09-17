@@ -12,7 +12,7 @@ import {
   tombstonedIds,
   unconfirmedTombstoneIds,
 } from "../db/tombstones";
-import { planPull, withoutDeleted } from "./syncPlan";
+import { ownsLocalCache, planPull, withoutDeleted } from "./syncPlan";
 import type { ProgramMeta } from "../types";
 
 // ===========================================================================
@@ -262,6 +262,10 @@ async function flushDirty() {
 // there again.
 async function reconcileTombstones() {
   if (!supabase || !currentUserId) return;
+  // Tombstones are deletes from the account that owns the local cache. Until
+  // startSync has switched the cache to this account, they must not reach its
+  // cloud — not even from a flush that fires before the owner check.
+  if (!ownsLocalCache(localStorage.getItem(OWNER_KEY), currentUserId)) return;
   pruneTombstones();
   for (const t of BACKUP_TABLES) {
     const ids = await goneLocally(t, unconfirmedTombstoneIds(t));
@@ -508,18 +512,22 @@ export async function startSync(userId: string): Promise<void> {
     await ensureSeeded();
     // Safety net: stash local logs before any cloud reconcile touches them.
     await takeSnapshot("before sync reconcile");
-    // Push any deletions that were dropped while offline/suspended.
-    await dropStaleTombstones();
-    await reconcileTombstones();
-    if (gen !== startGeneration) return;
 
-    // A different user's local cache must never leak across accounts.
-    const owner = localStorage.getItem(OWNER_KEY);
-    if (owner && owner !== userId) {
+    // A different user's local cache must never leak across accounts. This
+    // runs before any network call, so a failed request can't leave the
+    // previous account's data in place for this one.
+    if (!ownsLocalCache(localStorage.getItem(OWNER_KEY), userId)) {
       await clearLocal();
       await reseedProgramData();
       if (gen !== startGeneration) return;
     }
+
+    // Push any deletions that were dropped while offline/suspended. After the
+    // owner check: clearLocal() drops the previous account's tombstones, and
+    // those deletes must never be sent to this account's cloud.
+    await dropStaleTombstones();
+    await reconcileTombstones();
+    if (gen !== startGeneration) return;
 
     const [cloudVer, hasData] = [await cloudSeedVersion(userId), await cloudHasData(userId)];
     if (gen !== startGeneration) return;

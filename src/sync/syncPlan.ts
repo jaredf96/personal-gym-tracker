@@ -49,3 +49,12 @@ export function withoutDeleted<T>(
 ): T[] {
   return tombstoned.size ? rows.filter((r) => !tombstoned.has(idOf(r))) : rows;
 }
+
+/**
+ * Whether the local cache (and the deletes recorded against it) belongs to
+ * this user. No recorded owner means data from before any sign-in, which the
+ * first account adopts. Any other owner's cache is cleared before it syncs.
+ */
+export function ownsLocalCache(owner: string | null, userId: string): boolean {
+  return !owner || owner === userId;
+}

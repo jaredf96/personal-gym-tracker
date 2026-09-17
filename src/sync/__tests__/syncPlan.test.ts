@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { planPull, withoutDeleted } from "../syncPlan";
+import { ownsLocalCache, planPull, withoutDeleted } from "../syncPlan";
 import {
   addTombstone,
   clearTombstone,
@@ -84,5 +84,16 @@ describe("push filtering", () => {
     clearTombstone(T, "s7"); // what the creating hook does
     expect(withoutDeleted([{ id: "s7" }], idOf, tombstonedIds(T)).map(idOf)).toEqual(["s7"]);
     expect(pull([{ id: "s7" }], []).toPut.map(idOf)).toEqual(["s7"]);
+  });
+});
+
+describe("local cache ownership", () => {
+  it("REGRESSION: another account's cache (and its unsent deletes) is not this user's", () => {
+    expect(ownsLocalCache("user-a", "user-b")).toBe(false);
+  });
+
+  it("the same account, or data from before any sign-in, is", () => {
+    expect(ownsLocalCache("user-b", "user-b")).toBe(true);
+    expect(ownsLocalCache(null, "user-b")).toBe(true);
   });
 });
