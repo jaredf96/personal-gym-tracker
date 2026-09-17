@@ -1,11 +1,15 @@
 # Max Productive Upper/Lower Split — App Program Spec
 
-Version: 2026-09-16 (rev 3)
+Version: 2026-09-17 (rev 4)
 Goal: natural-lifter hypertrophy with strength progression, high weekly volume, rest/cardio calendar support, and historical workout logging.
 
 > **For Claude Code:** This file has two parts. The prose sections explain *intent* — read them so feature decisions (deload triggers, RIR enforcement, volume math) match the training philosophy. The `PROGRAM_DATA` JSON block near the bottom is the canonical structured data to seed into the app. Treat the JSON as source of truth for exercises/sets/reps; treat the prose as the "why." Preserve any existing user history and adapt to the current codebase — do not rebuild from scratch.
 
 ---
+
+## Changes from rev 3
+
+- Lower A slot 1 / Lower B slot 1: **the combined squat slots split into separate exercises.** High-Bar Squat, Hack Squat and a heavy Leg Press take different working weights, so each needs its own history. Lower A defaults to High-Bar Squat, Lower B to Leg Press (Heavy), and both slots offer the others as alternatives (one-tap switch in the logger). The two slots keep their existing ids, so logged history carries over: Lower A's → High-Bar Squat, Lower B's → Leg Press (Heavy). Hack Squat is new and starts with no history. The barbell squat is one lift in both slots. Lower A slot 3's lighter Leg Press is untouched and keeps its own history.
 
 ## Changes from rev 2
 
@@ -83,13 +87,13 @@ Default deload: reduce working sets by 30-50% for one week, keep movement patter
 
 ## PROGRAM_DATA
 
-Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` is `false` for warm-ups and anything intended as activation. `warmupSets` is the suggested number of separate (uncounted) ramp sets for that movement. Optional `id` pins an exercise's id instead of deriving it from the name (keeps logged history attached across a rename). Optional `alternatives` names other exercises in this program that can fill the slot; each keeps its own history.
+Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` is `false` for warm-ups and anything intended as activation. `warmupSets` is the suggested number of separate (uncounted) ramp sets for that movement. Optional `id` pins an exercise's id instead of deriving it from the name (keeps logged history attached across a rename). Optional `alternatives` lists other exercises that can fill the slot, each keeping its own history: a name, for one some slot already uses, or a full definition, for a variant that is no slot's default.
 
 ```json
 {
   "program": {
     "name": "Max Productive Upper/Lower Split",
-    "version": "2026-09-16-rev3",
+    "version": "2026-09-17-rev4",
     "experienceLevel": "advanced",
     "goal": "hypertrophy_with_strength",
     "philosophy": {
@@ -148,7 +152,7 @@ Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` i
         "label": "Lower A",
         "estimatedMinutes": [80, 90],
         "exercises": [
-          { "order": 1, "name": "Hack Squat or High-Bar Squat", "type": "compound", "sets": 4, "repRange": "6-10", "rir": "1-2", "restSeconds": [180, 180], "primaryMuscles": ["quads"], "secondaryMuscles": ["glutes"], "warmupSets": 3, "countsTowardVolume": true },
+          { "order": 1, "name": "High-Bar Squat", "id": "hack-squat-or-high-bar-squat", "alternatives": [{ "name": "Hack Squat", "type": "compound", "repRange": "6-10", "rir": "1-2", "restSeconds": [180, 180], "primaryMuscles": ["quads"], "secondaryMuscles": ["glutes"], "warmupSets": 3 }], "type": "compound", "sets": 4, "repRange": "6-10", "rir": "1-2", "restSeconds": [180, 180], "primaryMuscles": ["quads"], "secondaryMuscles": ["glutes"], "warmupSets": 3, "countsTowardVolume": true },
           { "order": 2, "name": "Romanian Deadlift", "type": "compound", "sets": 4, "repRange": "6-10", "rir": "1-2", "restSeconds": [180, 180], "primaryMuscles": ["hamstrings"], "secondaryMuscles": ["glutes", "erectors"], "warmupSets": 2, "countsTowardVolume": true },
           { "order": 3, "name": "Leg Press", "type": "compound", "sets": 2, "repRange": "10-15", "rir": "1-2", "restSeconds": [120, 180], "primaryMuscles": ["quads"], "secondaryMuscles": ["glutes"], "warmupSets": 1, "countsTowardVolume": true, "note": "Trimmed 3→2 to keep weekly quad volume recoverable." },
           { "order": 4, "name": "Lying Leg Curl", "type": "isolation", "sets": 4, "repRange": "10-15", "rir": "0-1", "restSeconds": [90, 90], "primaryMuscles": ["hamstrings"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },
@@ -177,7 +181,7 @@ Canonical structured data. `restSeconds` is `[min, max]`. `countsTowardVolume` i
         "label": "Lower B",
         "estimatedMinutes": [80, 90],
         "exercises": [
-          { "order": 1, "name": "Squat, Hack Squat, or Leg Press", "type": "compound", "sets": 4, "repRange": "8-12", "rir": "1-2", "restSeconds": [180, 180], "primaryMuscles": ["quads"], "secondaryMuscles": ["glutes"], "warmupSets": 3, "countsTowardVolume": true },
+          { "order": 1, "name": "Leg Press (Heavy)", "id": "squat-hack-squat-or-leg-press", "alternatives": ["High-Bar Squat", "Hack Squat"], "type": "compound", "sets": 4, "repRange": "8-12", "rir": "1-2", "restSeconds": [180, 180], "primaryMuscles": ["quads"], "secondaryMuscles": ["glutes"], "warmupSets": 3, "countsTowardVolume": true },
           { "order": 2, "name": "45° Hyperextension (Glute-Focused) or Cable Kickback", "type": "isolation", "sets": 3, "repRange": "10-15", "rir": "1-2", "restSeconds": [90, 90], "primaryMuscles": ["glutes"], "secondaryMuscles": ["hamstrings", "erectors"], "warmupSets": 0, "countsTowardVolume": true, "note": "Replaces hip thrust — easier to progress in a busy gym, adds posterior-chain volume." },
           { "order": 3, "name": "Bulgarian Split Squat or Walking Lunge", "type": "compound", "sets": 3, "repRange": "8-12 each leg", "rir": "1-2", "restSeconds": [120, 180], "primaryMuscles": ["quads", "glutes"], "secondaryMuscles": ["hamstrings"], "warmupSets": 1, "countsTowardVolume": true },
           { "order": 4, "name": "Seated Leg Curl", "type": "isolation", "sets": 4, "repRange": "8-12", "rir": "0-1", "restSeconds": [90, 90], "primaryMuscles": ["hamstrings"], "secondaryMuscles": [], "warmupSets": 0, "countsTowardVolume": true },

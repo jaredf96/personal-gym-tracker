@@ -238,7 +238,34 @@ export const seedExercises: Exercise[] = [
   },
   {
     "id": "hack-squat-or-high-bar-squat",
-    "name": "Hack Squat or High-Bar Squat",
+    "name": "High-Bar Squat",
+    "type": "compound",
+    "primaryMuscles": [
+      "quads"
+    ],
+    "secondaryMuscles": [
+      "glutes"
+    ],
+    "volumeMuscles": [
+      "quads"
+    ],
+    "secondaryVolumeMuscles": [
+      "glutes"
+    ],
+    "movementPattern": "Squat/Knee",
+    "defaultRepMin": 6,
+    "defaultRepMax": 10,
+    "perSide": false,
+    "defaultRestMin": 180,
+    "defaultRestMax": 180,
+    "rirTarget": "1-2",
+    "defaultWarmupSets": 3,
+    "progressionRule": "Double Progression",
+    "note": undefined
+  },
+  {
+    "id": "hack-squat",
+    "name": "Hack Squat",
     "type": "compound",
     "primaryMuscles": [
       "quads"
@@ -654,7 +681,7 @@ export const seedExercises: Exercise[] = [
   },
   {
     "id": "squat-hack-squat-or-leg-press",
-    "name": "Squat, Hack Squat, or Leg Press",
+    "name": "Leg Press (Heavy)",
     "type": "compound",
     "primaryMuscles": [
       "quads"
@@ -1034,7 +1061,10 @@ export const seedTemplateExercises: TemplateExercise[] = [
     "progressionRule": "Double Progression",
     "exerciseType": "compound",
     "isMainLift": true,
-    "notes": undefined
+    "notes": undefined,
+    "alternativeExerciseIds": [
+      "hack-squat"
+    ]
   },
   {
     "id": "lower-a:2",
@@ -1360,7 +1390,11 @@ export const seedTemplateExercises: TemplateExercise[] = [
     "progressionRule": "Double Progression",
     "exerciseType": "compound",
     "isMainLift": true,
-    "notes": undefined
+    "notes": undefined,
+    "alternativeExerciseIds": [
+      "hack-squat-or-high-bar-squat",
+      "hack-squat"
+    ]
   },
   {
     "id": "lower-b:2",
@@ -1642,7 +1676,7 @@ export const seedWeeklySchedule: WeeklyScheduleDay[] = [
 export const seedProgramMeta: ProgramMeta = {
   "id": "program",
   "name": "Max Productive Upper/Lower Split",
-  "version": "2026-09-16-rev3",
+  "version": "2026-09-17-rev4",
   "seedVersion": "v2-maxvol-2026-06-26",
   "experienceLevel": "advanced",
   "goal": "hypertrophy_with_strength",
