@@ -85,6 +85,15 @@ describe("push filtering", () => {
     expect(withoutDeleted([{ id: "s7" }], idOf, tombstonedIds(T)).map(idOf)).toEqual(["s7"]);
     expect(pull([{ id: "s7" }], []).toPut.map(idOf)).toEqual(["s7"]);
   });
+
+  it("REGRESSION: a row re-created while its cloud delete was in flight is queued again", () => {
+    addTombstone(T, "s8"); // deleted here; the cloud delete is sent
+    addTombstone(T, "s9");
+    clearTombstone(T, "s8"); // re-created (and re-uploaded) before the delete returned
+    confirmTombstones(T, ["s8", "s9"]); // the delete lands — possibly after that upload
+    // What confirmCloudDeletes queues for upload: only the row that exists again.
+    expect(withoutDeleted(["s8", "s9"], (id) => id, tombstonedIds(T))).toEqual(["s8"]);
+  });
 });
 
 describe("local cache ownership", () => {

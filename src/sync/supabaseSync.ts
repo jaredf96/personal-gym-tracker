@@ -36,7 +36,8 @@ import type { ProgramMeta } from "../types";
 //  5. Every local delete leaves a tombstone (src/db/tombstones.ts) that outlives
 //     the cloud delete: no push uploads a tombstoned row, no pull restores one,
 //     and a pull that finds one back in the cloud deletes it there again.
-//     Deletes the cloud has not confirmed are retried on the next flush.
+//     Deletes the cloud has not confirmed are retried on the next flush, and a
+//     row re-created while its delete was in flight is uploaded again.
 //  6. Bulk local rewrites (backup import) run inside withSyncPaused() and then
 //     one bounded reconcile — never a per-row network storm.
 //
@@ -223,13 +224,27 @@ function onLocalDelete(t: BackupTableName, primKey: unknown) {
         // Confirm, don't clear: the tombstone must outlive this delete so a
         // racing push or another device can't bring the row back (a cleared
         // tombstone is how a discarded session kept reappearing on reload).
-        confirmTombstones(t, [id]);
+        confirmCloudDeletes(t, [id]);
         return;
       }
       // Unconfirmed tombstones are retried on the next flush.
       failStatus(error);
       scheduleFlush();
     });
+}
+
+// The cloud confirmed these deletes. A row re-created locally while its delete
+// was in flight has no tombstone any more (onLocalCreate cleared it), and its
+// upload may have landed before the delete did, leaving the cloud without it:
+// queue it again. upsertRows skips any row that has been deleted once more.
+// Reads tombstones rather than Dexie: onLocalDelete's callback runs after its
+// hook's transaction has finished.
+function confirmCloudDeletes(t: BackupTableName, ids: string[]) {
+  confirmTombstones(t, ids);
+  const recreated = withoutDeleted(ids, (id) => id, tombstonedIds(t));
+  if (recreated.length === 0) return;
+  for (const id of recreated) markDirty(t, id);
+  scheduleFlush();
 }
 
 function scheduleFlush() {
@@ -277,7 +292,7 @@ async function reconcileTombstones() {
         .eq("user_id", currentUserId)
         .in("id", chunk);
       if (error) throw error;
-      confirmTombstones(t, chunk);
+      confirmCloudDeletes(t, chunk);
     }
   }
 }
@@ -419,7 +434,7 @@ async function redeleteResurrected(redelete: Map<BackupTableName, string[]>) {
         .eq("user_id", currentUserId)
         .in("id", chunk);
       if (error) return;
-      confirmTombstones(t, chunk);
+      confirmCloudDeletes(t, chunk);
     }
   }
 }
