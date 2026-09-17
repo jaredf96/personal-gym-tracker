@@ -4,6 +4,7 @@ import {
   adjustmentsForExercises,
   affectsArea,
   parsePainNote,
+  sessionPainNotes,
   type PainNoteSource,
   type TrainedSession,
 } from "../painNotes";
@@ -202,5 +203,25 @@ describe("activePainAreas", () => {
       TODAY
     );
     expect(active[0].label).toBe("both shoulders");
+  });
+});
+
+describe("sessionPainNotes", () => {
+  const upperA = { date: "2026-09-14", endedAt: "2026-09-14T19:00:00.000Z" };
+  const flagged = (notes: PainNoteSource[]) =>
+    activePainAreas(notes, [], ALL, upperA.date).map((a) => a.label);
+
+  it("REGRESSION: that day's readiness note flags its area in the session analysis", () => {
+    expect(flagged(sessionPainNotes(upperA, [undefined, "felt strong"], ["left shoulder pinch"]))).toEqual([
+      "left shoulder",
+    ]);
+  });
+
+  it("set notes still flag theirs, alongside the readiness note", () => {
+    expect(flagged(sessionPainNotes(upperA, ["right knee achy"], ["left shoulder pinch"]))).toEqual([
+      "left shoulder",
+      "right knee",
+    ]);
+    expect(flagged(sessionPainNotes(upperA, ["right knee achy"], [undefined]))).toEqual(["right knee"]);
   });
 });

@@ -275,6 +275,22 @@ export interface TrainedSession {
   exerciseIds: string[]; // exercises with working sets
 }
 
+/**
+ * The notes a finished session's analysis reads for pain: its own set notes,
+ * plus that day's readiness notes, which shape the next workouts just the same.
+ */
+export function sessionPainNotes(
+  session: { date: string; endedAt?: string },
+  setNotes: (string | undefined)[],
+  readinessNotes: (string | undefined)[]
+): PainNoteSource[] {
+  const present = (n: string | undefined): n is string => !!n;
+  return [
+    ...setNotes.filter(present).map((text) => ({ text, date: session.date, endedAt: session.endedAt })),
+    ...readinessNotes.filter(present).map((text) => ({ text, date: session.date })),
+  ];
+}
+
 export interface ActivePainArea {
   area: PainArea;
   label: string; // "left shoulder"

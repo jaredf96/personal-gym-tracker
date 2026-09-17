@@ -29,11 +29,13 @@ import {
   PAIN_WINDOW_DAYS,
   activePainAreas,
   adjustmentsForExercises,
+  sessionPainNotes,
   type ActivePainArea,
   type PainAdjustment,
   type PainNoteSource,
   type TrainedSession,
 } from "./painNotes";
+import { slotsByExercise, swappedSlot } from "./variants";
 import { addDaysISO, todayISODate } from "../lib/dates";
 
 // Builds a synthetic TemplateExercise from an exercise's defaults, for the case
@@ -131,20 +133,12 @@ export async function getUpcomingPlan(
 
   const items: PlanItem[] = [];
   for (const view of views) {
-    // Apply a per-session swap: the slot keeps its prescription (sets/reps/
-    // rest/RIR — the training intent), while identity, history, and the
-    // progression rule follow the substituted exercise.
+    // Apply a per-session swap (see swappedSlot).
     const swapId = swaps?.[view.templateExercise.id];
     const swapped = swapId ? exercisesById.get(swapId) : undefined;
     const exercise = swapped ?? view.exercise;
-    const templateExercise: TemplateExercise = swapped
-      ? {
-          ...view.templateExercise,
-          exerciseId: swapped.id,
-          progressionRule: swapped.progressionRule,
-          exerciseType: swapped.type,
-          perSide: swapped.perSide,
-        }
+    const templateExercise = swapped
+      ? swappedSlot(view.templateExercise, swapped)
       : view.templateExercise;
 
     const alternatives = (view.templateExercise.alternativeExerciseIds ?? [])
@@ -206,15 +200,16 @@ export async function analyzeSession(sessionId: string): Promise<SessionAnalysis
   const session = await db.workoutSessions.get(sessionId);
   if (!session) return null;
 
-  const [sets, settings, exercisesById, template] = await Promise.all([
+  const [sets, settings, exercisesById, template, readiness] = await Promise.all([
     getSetsForSession(sessionId),
     getSettings(),
     getExercisesById(),
     db.workoutTemplates.get(session.templateId),
+    db.readinessLogs.where("date").equals(session.date).toArray(),
   ]);
 
   const templateViews = await getTemplateExerciseViews(session.templateId);
-  const teByExercise = new Map(templateViews.map((v) => [v.exercise.id, v.templateExercise]));
+  const teByExercise = slotsByExercise(templateViews, session.swaps, exercisesById);
 
   // Group this session's sets by exercise, preserving log order.
   const byExercise = new Map<string, SetEntry[]>();
@@ -254,12 +249,15 @@ export async function analyzeSession(sessionId: string): Promise<SessionAnalysis
     if (pain) flags.push(pain);
   }
 
-  // Pain this session's notes place in an area leads the flags, so the coach
-  // mentions what changes next time (warm-ups + stretches; weights untouched).
+  // Pain this session's notes (or that day's readiness note) place in an area
+  // leads the flags, so the coach mentions what changes next time (warm-ups +
+  // stretches; weights untouched).
   const notedAreas = activePainAreas(
-    sets
-      .filter((s) => !!s.notes)
-      .map((s) => ({ text: s.notes as string, date: session.date, endedAt: session.endedAt })),
+    sessionPainNotes(
+      session,
+      sets.map((s) => s.notes),
+      readiness.map((r) => r.notes)
+    ),
     [],
     exercisesById,
     session.date
